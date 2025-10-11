@@ -25,7 +25,7 @@ NandGame machine code is output using the system's endianness.
 ### CLI usage
 
 ```
-$ ngc-asm [-vh] [-i <path>] [-o <path>] <path>
+$ ngc-asm [-vh] [-o <path>] <path>
 ```
 
 | Option      | Description |
