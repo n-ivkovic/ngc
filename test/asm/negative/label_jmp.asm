@@ -1,0 +1,2 @@
+LABEL jmp
+A = JMP

@@ -1,0 +1,2 @@
+LABEL jne
+A = JNE

@@ -1,0 +1,3 @@
+DEFINE jmp 0x7FFF
+
+A = JMP

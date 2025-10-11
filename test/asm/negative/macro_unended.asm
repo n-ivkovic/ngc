@@ -1,0 +1,2 @@
+%MACRO invalid
+D&A

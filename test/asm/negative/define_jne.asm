@@ -1,0 +1,3 @@
+DEFINE jne 0x7FFF
+
+A = JNE
