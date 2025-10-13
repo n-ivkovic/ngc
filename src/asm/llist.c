@@ -107,10 +107,10 @@ static void llist_node_free(struct llist_node* node, void (*f)(void*))
 {
 	if (!node)
 		return;
-		
+
 	if (f)
 		f(node->val);
-	
+
 	free(node);
 }
 
