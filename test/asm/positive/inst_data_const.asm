@@ -1,7 +1,7 @@
 # "A = 0" is an ALU operation
 A = 00
 A = 000
-A = 1
+# "A = 1" is an ALU operation
 A = 01
 A = 001
 A = 9

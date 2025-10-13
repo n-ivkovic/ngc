@@ -844,7 +844,7 @@ static bool parse_inst_data(struct error* err, struct llist* lines, struct llist
 
 	// Try parse data value as number
 	long parsed_number = parse_number(data_str);
-	if (parsed_number > 0) {
+	if (parsed_number >= 0) {
 		// Push line result
 		if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)parsed_number))
 			return false;
