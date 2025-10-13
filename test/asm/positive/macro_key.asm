@@ -1,0 +1,132 @@
+%MACRO UPPER
+A = 0x5550
+%END
+%MACRO lower
+A = 0x6C6F
+%END
+%MACRO mIxEd
+A = 0X4D69
+%END
+
+UPPER
+upper
+Upper
+uPpEr
+LOWER
+lower
+Lower
+lOwEr
+MIXED
+mixed
+Mixed
+mIxEd
+
+%MACRO X0
+A = 0x5830
+%END
+%MACRO X00
+A = 0x5831
+%END
+%MACRO X9
+A = 0x5839
+%END
+%MACRO X99
+A = 0x5840
+%END
+%MACRO X_
+A = 0x585F
+%END
+%MACRO X__
+A = 0x5860
+%END
+
+X0
+X00
+X9
+X99
+X_
+X__
+
+%MACRO .
+A = 0x002E
+%END
+%MACRO ..
+A = 0x2E2E
+%END
+%MACRO X.
+A = 0x582E
+%END
+%MACRO X..
+A = 0x582F
+%END
+%MACRO .X
+A = 0x2E58
+%END
+%MACRO ..X
+A = 0x2F58
+%END
+
+.
+..
+X.
+X..
+.X
+..X
+
+%MACRO AA
+A = 0x4141
+%END
+%MACRO DD
+A = 0x4444
+%END
+
+AA
+Aa
+aa
+DD
+Dd
+dd
+
+%MACRO JGT
+A = 0x4754
+%END
+%MACRO JEQ
+A = 0x4551
+%END
+%MACRO JGE
+A = 0x4745
+%END
+%MACRO JLT
+A = 0x4C54
+%END
+%MACRO JNE
+A = 0x4E45
+%END
+%MACRO JLE
+A = 0x4C45
+%END
+%MACRO JMP
+A = 0x4D50
+%END
+
+jgt
+Jgt
+jGT
+jeq
+Jeq
+jEQ
+jge
+Jge
+jGE
+jlt
+Jlt
+jLT
+jne
+Jne
+jNE
+jle
+Jle
+jLE
+jmp
+Jmp
+jMP
