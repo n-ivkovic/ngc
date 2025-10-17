@@ -50,7 +50,7 @@ exe_path="$1" && readonly exe_path
 base_path="$(dirname "$0")" && readonly base_path
 pos_path="${base_path}/positive" && readonly pos_path
 neg_path="${base_path}/negative" && readonly neg_path
-in_ext='.asm' && readonly in_ext
+in_ext='.in' && readonly in_ext
 out_ext='.out' && readonly out_ext
 err_ext='.err' && readonly err_ext
 

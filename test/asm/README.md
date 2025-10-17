@@ -8,22 +8,22 @@ Tests are divided into positive and negative tests.
 
 ### Positive tests
 
-Positive tests ensure when assembling a given assembly file, the assembler returns an expected machine code output (`stdout`).
+Positive tests ensure when assembling a given assembly file input, the assembler returns an expected machine code output (`stdout`).
 No error output (`stderr`) is expected.
 
 | File path           | Description |
 | ---                 | ---         |
-| {test_name}.**asm** | Assembly file. |
+| {test_name}.**in**  | Assembly file input. |
 | {test_name}.**out** | Expected machine code output. |
 
 ### Negative tests
 
-Negative tests ensure when assembling a given assembly file, the assembler returns an expected error output (`stderr`).
+Negative tests ensure when assembling a given assembly file input, the assembler returns an expected error output (`stderr`).
 No machine code output (`stdout`) is expected.
 
 | File path           | Description |
 | ---                 | ---         |
-| {test_name}.**asm** | Assembly file. |
+| {test_name}.**in**  | Assembly file input. |
 | {test_name}.**err** | Expected error output. |
 
 ## CLI usage
