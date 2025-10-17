@@ -19,7 +19,7 @@ struct parsed {
 struct scope {
 	struct llist defs_data; // llist of parsed_def_data
 	const struct llist defs_macros; // llist of parsed_def_macro
-	const size_t data_label_offset;
+	const size_t pc_offset;
 };
 
 static bool list_copy(struct error* err, struct llist* dst, const struct llist src)
@@ -96,13 +96,13 @@ static struct parsed_def_macro* def_macro_get(const struct llist defs_macros, co
  * Assemble data instruction.
  *
  * @param err Struct to store error.
+ * @param pc_offset Program counter offset.
  * @param defs_data Linked list of data definitions.
  * @param refs_data Linked list of data references.
  * @param refs_data_ind Index of data reference to assemble.
- * @param data_label_offset ...
  * @returns Value of data instruction. -1 if error.
  */
-static long assemble_data(struct error* err, const struct llist defs_data, const size_t data_label_offset, const struct llist refs_data, const size_t refs_data_ind)
+static long assemble_data(struct error* err, const size_t pc_offset, const struct llist defs_data, const struct llist refs_data, const size_t refs_data_ind)
 {
 	// Get referenced data key at given index
 	char* data_key = (char*)llist_get(refs_data, refs_data_ind);
@@ -123,7 +123,7 @@ static long assemble_data(struct error* err, const struct llist defs_data, const
 		case DATA_CONST_E:
 			return def_data->val;
 		case DATA_LABEL_E:
-			return def_data->val + data_label_offset;
+			return def_data->val + pc_offset;
 		default:
 			error_init(err, ERRVAL_FAILURE, "Unknown data definition type: %d", def_data->type);
 			return -1;
@@ -137,19 +137,22 @@ static long assemble_data(struct error* err, const struct llist defs_data, const
  * @param macro_defs_data Linked list to push assembled result.
  * @param def_macro Macro definition.
  * @param ref_macro Macro reference.
- * @param data_label_offset ...
+ * @param pc_offset Program counter offset.
  * @param defs_data Linked list of data definitions.
  * @param refs_data Linked list of data references.
- * @returns Whether [something] was assembled successfully.
+ * @returns Whether data definitions were assembled successfully.
  */
-static bool assemble_macro_params_defs_data(struct error* err, struct llist* macro_defs_data, const struct parsed_def_macro def_macro, const struct parsed_ref_macro ref_macro, const size_t data_label_offset, const struct llist defs_data, const struct llist refs_data)
+static bool assemble_macro_params_defs_data(struct error* err, struct llist* macro_defs_data, const struct parsed_def_macro def_macro, const struct parsed_ref_macro ref_macro, const size_t pc_offset, const struct llist defs_data, const struct llist refs_data)
 {
 	assert(macro_defs_data);
 
 	size_t macro_defs_data_len_prev = macro_defs_data->len;
 
-	if (ref_macro.params.len != def_macro.params.len) {
-		error_init(err, ERRVAL_SYNTAX, "Macro reference has incorrect number of parameters: '%s'", def_macro.key);
+	if (ref_macro.params.len < def_macro.params.len) {
+		error_init(err, ERRVAL_SYNTAX, "Macro reference has %zu parameter(s) fewer than required: '%s'", def_macro.params.len - ref_macro.params.len, def_macro.key);
+		goto error;
+	} else if (ref_macro.params.len > def_macro.params.len) {
+		error_init(err, ERRVAL_SYNTAX, "Macro reference has %zu parameter(s) more than required: '%s'", ref_macro.params.len - def_macro.params.len, def_macro.key);
 		goto error;
 	}
 
@@ -177,7 +180,7 @@ static bool assemble_macro_params_defs_data(struct error* err, struct llist* mac
 			case PARAM_REF_DATA_E:
 				;
 				// Assemble referenced data instruction
-				long data = assemble_data(err, defs_data, data_label_offset, refs_data, ref_param->val);
+				long data = assemble_data(err, pc_offset, defs_data, refs_data, ref_param->val);
 				if (data < 0)
 					goto error;
 
@@ -201,28 +204,40 @@ static bool assemble_macro_params_defs_data(struct error* err, struct llist* mac
 	return false;
 }
 
-static bool assemble_macro_scope_defs_data(struct error* err, struct scope* macro_scope, const struct parsed_def_macro def_macro, const struct parsed_ref_macro ref_macro, const struct llist defs_data, const struct llist refs_data)
+/**
+ * Assemble data definitions for macro scope.
+ *
+ * @param err Struct to store error.
+ * @param macro_defs_data Linked list to push assembled result.
+ * @param def_macro Macro definition.
+ * @param ref_macro Macro reference.
+ * @param pc_offset Program counter offset.
+ * @param defs_data Linked list of data definitions.
+ * @param refs_data Linked list of data references.
+ * @returns Whether data definitions were assembled successfully.
+ */
+static bool assemble_macro_defs_data(struct error* err, struct llist* macro_defs_data, const struct parsed_def_macro def_macro, const struct parsed_ref_macro ref_macro, const size_t pc_offset, const struct llist defs_data, const struct llist refs_data)
 {
-	assert(macro_scope);
+	assert(macro_defs_data);
 
-	size_t macro_defs_data_len_prev = macro_scope->defs_data.len;
+	size_t macro_defs_data_len_prev = macro_defs_data->len;
 
 	// Assemble list of data definitions given in macro parameter references
-	if (!assemble_macro_params_defs_data(err, &macro_scope->defs_data, def_macro, ref_macro, macro_scope->data_label_offset, defs_data, refs_data))
+	if (!assemble_macro_params_defs_data(err, macro_defs_data, def_macro, ref_macro, pc_offset, defs_data, refs_data))
 		goto error;
 
 	// Copy data definitions from macro definition to macro scope
-	if (!list_copy(err, &macro_scope->defs_data, def_macro.base.defs_data))
+	if (!list_copy(err, macro_defs_data, def_macro.base.defs_data))
 		goto error;
 
 	// Copy data definitions from current scope to macro scope
-	if (!list_copy(err, &macro_scope->defs_data, defs_data))
+	if (!list_copy(err, macro_defs_data, defs_data))
 		goto error;
 
 	return true;
 
 	error:
-	llist_part_empty(&macro_scope->defs_data, macro_defs_data_len_prev);
+	llist_part_empty(macro_defs_data, macro_defs_data_len_prev);
 	return false;
 }
 
@@ -237,7 +252,7 @@ static bool assemble_macro_scope_defs_data(struct error* err, struct scope* macr
  */
 static size_t assemble_parsed(struct error* err, struct llist* instructions, const struct parsed parsed, const struct scope scope)
 {
-	size_t data_label_offset = scope.data_label_offset;
+	size_t pc_offset = scope.pc_offset;
 
 	struct llist_node* line_node = parsed.lines.head;
 	for (size_t lines_ind = 0; line_node && lines_ind < parsed.lines.len; line_node = line_node->next, lines_ind++) {
@@ -254,7 +269,7 @@ static size_t assemble_parsed(struct error* err, struct llist* instructions, con
 			case LINE_REF_DATA_E:
 				;
 				// Assemble referenced data instruction
-				long data = assemble_data(err, scope.defs_data, data_label_offset, parsed.refs_data, line->val);
+				long data = assemble_data(err, pc_offset, scope.defs_data, parsed.refs_data, line->val);
 				if (data < 0)
 					return line->line_num;
 
@@ -285,9 +300,9 @@ static size_t assemble_parsed(struct error* err, struct llist* instructions, con
 				struct scope macro_scope = {
 					.defs_data = { 0 },
 					.defs_macros = scope.defs_macros,
-					.data_label_offset = data_label_offset
+					.pc_offset = pc_offset
 				};
-				if (!assemble_macro_scope_defs_data(err, &macro_scope, *def_macro, *ref_macro, scope.defs_data, parsed.refs_data))
+				if (!assemble_macro_defs_data(err, &macro_scope.defs_data, *def_macro, *ref_macro, macro_scope.pc_offset, scope.defs_data, parsed.refs_data))
 					return line->line_num;
 
 				size_t instructions_len_prev = instructions->len;
@@ -297,8 +312,8 @@ static size_t assemble_parsed(struct error* err, struct llist* instructions, con
 				if (macro_assemble_result > 0)
 					return macro_assemble_result;
 
-				// Add number of instructions assembled to offset
-				data_label_offset += instructions->len - instructions_len_prev;
+				// Add number of instructions assembled by macro to program counter offset
+				pc_offset += instructions->len - instructions_len_prev;
 
 				break;
 
@@ -316,9 +331,9 @@ static size_t assemble_parsed(struct error* err, struct llist* instructions, con
 	return 0;
 }
 
-size_t assemble_file(struct error* err, struct llist* bytes, const struct parsed_file file)
+size_t assemble_file(struct error* err, struct llist* instructions, const struct parsed_file file)
 {
-	if (!bytes) {
+	if (!instructions) {
 		error_init(err, ERRVAL_FAILURE, "Result list is null");
 		return 1;
 	}
@@ -328,8 +343,8 @@ size_t assemble_file(struct error* err, struct llist* bytes, const struct parsed
 	struct scope scope = {
 		.defs_data = file.base.defs_data,
 		.defs_macros = file.defs_macros,
-		.data_label_offset = 0
+		.pc_offset = 0
 	};
 
-	return assemble_parsed(err, bytes, parsed, scope);
+	return assemble_parsed(err, instructions, parsed, scope);
 }
