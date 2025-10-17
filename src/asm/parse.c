@@ -948,7 +948,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 
 		// LABEL
 		case 0x4C4142454C:
-			if (!parse_def_data_label(err, &result->defs_data, line_toks, result->lines.len))
+			if (!parse_def_data_label(err, &result->defs_data, line_toks, result->lines.len - result->refs_macros.len)) // Macro references do not count towards instruction count
 				goto exit;
 
 			success = true;
