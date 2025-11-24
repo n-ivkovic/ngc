@@ -7,8 +7,8 @@
 #include <ctype.h>
 
 #define PARSED_KEY_LEN_MAX 0x3F
-#define PARSED_KEY_CHARS (STR_CHARS(PARSED_KEY_LEN_MAX))
-#define PARSED_KEY_SIZE (STR_SIZE(PARSED_KEY_LEN_MAX))
+#define PARSED_KEY_CHARS STR_CHARS(PARSED_KEY_LEN_MAX)
+#define PARSED_KEY_SIZE STR_SIZE(PARSED_KEY_LEN_MAX)
 #define PARSED_KEYS_EQ(k1, k2) (str_comp(k1, k2, PARSED_KEY_LEN_MAX, tolower) == 0)
 
 /**
@@ -65,8 +65,8 @@ enum parsed_def_data_type {
  * Parsed data definition (DEFINE or LABEL statement).
  */
 struct parsed_def_data {
-	enum parsed_def_data_type type;
 	char key[PARSED_KEY_CHARS];
+	enum parsed_def_data_type type;
 	size_t val; // Parsed number if type is DATA_CONST_E, instruction count if type is DATA_LABEL_E
 };
 
@@ -84,9 +84,9 @@ struct parsed_base {
  * Parsed macro definition.
  */
 struct parsed_def_macro {
-	struct parsed_base base;
 	char key[PARSED_KEY_CHARS];
 	struct llist params; // llist of char[PARSED_KEY_CHARS]
+	struct parsed_base base;
 };
 
 /**
@@ -97,12 +97,44 @@ struct parsed_file {
 	struct llist defs_macros; // llist of parsed_def_macro
 };
 
+/**
+ * Free values within parsed macro reference.
+ */
 void parsed_ref_macro_empty(struct parsed_ref_macro* ref_macro);
 
+/**
+ * Free parsed macro reference.
+ */
+void parsed_ref_macro_free(struct parsed_ref_macro* ref_macro);
+
+/**
+ * Free values within parsed macro definition.
+ */
 void parsed_def_macro_empty(struct parsed_def_macro* def_macro);
 
+/**
+ * Free macro definition.
+ */
+void parsed_def_macro_free(struct parsed_def_macro* def_macro);
+
+/**
+ * Free values within parsed assembly.
+ */
 void parsed_base_empty(struct parsed_base* base);
 
+/**
+ * Free parsed assembly.
+ */
+void parsed_base_free(struct parsed_base* base);
+
+/**
+ * Free values within parsed file.
+ */
 void parsed_file_empty(struct parsed_file* file);
+
+/**
+ * Free parsed file.
+ */
+void parsed_file_free(struct parsed_file* file);
 
 #endif

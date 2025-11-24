@@ -51,7 +51,7 @@ size_t llist_copy(struct llist *dst, const struct llist src);
 void* llist_get(const struct llist list, const size_t ind);
 
 /**
- * Free values of linked list using delegate function.
+ * Free values within linked list using delegate function.
  *
  * @param list Linked list to free values of.
  * @param f Delegate function used to free values.
@@ -59,14 +59,14 @@ void* llist_get(const struct llist list, const size_t ind);
 void llist_delegate_empty(struct llist* list, void (*f)(void*));
 
 /**
- * Free values of linked list.
+ * Free values within linked list.
  *
  * @param list Linked list to free values of.
  */
 void llist_empty(struct llist* list);
 
 /**
- * Free values of linked list after given index using delegate function.
+ * Free values within linked list after given index using delegate function.
  *
  * @param list Linked list to free values of.
  * @param ind Index to free values from.
@@ -75,7 +75,7 @@ void llist_empty(struct llist* list);
 void llist_part_delegate_empty(struct llist* list, const size_t ind, void (*f)(void*));
 
 /**
- * Free values of linked list after given index.
+ * Free values within linked list after given index.
  *
  * @param list Linked list to free values of.
  * @param ind Index to free values from.
