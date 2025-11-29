@@ -800,8 +800,8 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist
 
 	// ALU operation invalid - return hint if file line could be another kind of instruction
 	if (!line_semicol_ptr && parse_inst_alu_jump(tok_opr) < 0) {
-		// Line could be a data instruction
-		if (line_equals_ptr && (inst_target & NGC_IN_TARGET_A) > 0)
+		// Line could be a data instruction - "A = [...]"
+		if (line_equals_ptr && inst_target == NGC_IN_TARGET_A)
 			return ALU_INST_HINT_INST_DATA_E;
 
 		// Line could be a macro reference
@@ -940,18 +940,12 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 	switch (str_ull(line_tok_first)) {
 		// DEFINE
 		case 0x444546494E45:
-			if (!parse_def_data_define(err, &result->defs_data, line_toks))
-				goto exit;
-
-			success = true;
+			success = parse_def_data_define(err, &result->defs_data, line_toks);
 			goto exit;
 
 		// LABEL
 		case 0x4C4142454C:
-			if (!parse_def_data_label(err, &result->defs_data, line_toks, result->lines.len - result->refs_macros.len)) // Macro references do not count towards instruction count
-				goto exit;
-
-			success = true;
+			success = parse_def_data_label(err, &result->defs_data, line_toks, result->lines.len - result->refs_macros.len); // To avoid double-counting during assembly, macro references do not count towards instruction count
 			goto exit;
 
 		// %MACRO
@@ -1040,7 +1034,7 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp)
 	enum parsed_scope scope = SCOPE_FILE_E;
 
 	// Parse each line of file
-	while (fgets(f_line, sizeof(f_line), fp) != 0 && line_num < FILE_LINES_MAX) {
+	while (fgets(f_line, sizeof(f_line), fp) != 0 && line_num <= FILE_LINES_MAX) {
 		line_num++;
 
 		// Check if too many lines in file
