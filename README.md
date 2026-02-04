@@ -51,9 +51,12 @@ The assembler supports a superset of the original NandGame assembly language.
 The main new language feature supported is macro definitions.
 
 The assembler intends to be backwards-compatible the original NandGame assembly language.
-Any *unintended* differences to the original NandGame should be considered a bug.
+Any unintended differences to the original NandGame should be considered a bug.
 
 #### Macro definitions
+
+> [!WARNING]
+> Macro support has been turned off due to a flawed initial implementation. A new implementation is being actively worked on.
 
 The assembler supports syntax for declaring macros.
 A macro definition begins with the opening statement `%MACRO <name> [<parameters> ...]`, followed by the instructions within the macro, and then completed with the closing statement `%END`.
@@ -183,11 +186,11 @@ Please adhere to the following when creating a pull request:
     - POSIX features may be included only in the user interface files: [./src/asm/cli.c](./src/asm/cli.c) and [./src/emu/tui.c](./src/emu/tui.c). Limiting POSIX features to the interfaces only ensures the core logic remains as portable as possible.
         - Specifically conform to [POSIX.1-2001](https://pubs.opengroup.org/onlinepubs/000095399/), but do not utilise features removed from or marked as obsolete in newer standards up to [POSIX.1-2024](https://pubs.opengroup.org/onlinepubs/9799919799/).
         - Features available in standards newer than POSIX.1-2001 may be utilised as long as fallbacks are implemented.
-- Ensure all ASM tests pass when making changes to `ngc-asm`. Tests can be executed using `make test-asm`.
+- Ensure changes to `ngc-asm` do not cause any ASM tests to begin failing. Tests can be executed using `make test-asm`.
 
 ## License
 
-Copyright &copy; 2025 Nicholas Ivkovic.
+Copyright &copy; 2025-2026 Nicholas Ivkovic.
 
 Licensed under the GNU General Public License version 3 or later.
 See [./LICENSE](./LICENSE), or [https://gnu.org/licenses/gpl.html](https://gnu.org/licenses/gpl.html) if more recent, for details.

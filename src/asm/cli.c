@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
 			case 'v':
 			case 'V':
 			case 'h':
-				printf("ngc-asm v0.1.2%s", EOL);
+				printf("ngc-asm v0.2.0%s", EOL);
 				return 0;
 			case ':':
 				print_err("Option -%c requires an argument", optopt);
@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
 	struct parsed_file file = { 0 };
 
 	// Parse input file
-	size_t parse_result = parse_file(&err, &file, in_fp, LANG_FEAT_ALL);
+	size_t parse_result = parse_file(&err, &file, in_fp, LANG_FEAT_DEF_DATA);
 	fclose(in_fp);
 
 	// Exit if any error occurred when parsing
