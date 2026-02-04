@@ -24,7 +24,7 @@ size_t assemble_file_basic(struct error* err, struct llist* instructions, const 
 			case LINE_REF_DATA_E:
 				;
 				// Assemble referenced data instruction
-				struct parsed_def_data *def_data = assemble_ref_data(err, file.defs_data, file.refs_data, line->val);
+				struct parsed_def_data* def_data = assemble_ref_data(err, file.defs_data, file.refs_data, line->val);
 				if (!def_data)
 					return line->line_num;
 

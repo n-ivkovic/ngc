@@ -16,7 +16,7 @@
  * @param inst NGC instruction.
  * @returns Whether NGC instruction was pushed successfully.
  */
-bool inst_push(struct error *err, struct llist *instructions, const ngc_word_t inst);
+bool inst_push(struct error* err, struct llist* instructions, const ngc_word_t inst);
 
 /**
  * Get data definition.

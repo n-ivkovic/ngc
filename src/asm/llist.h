@@ -39,7 +39,7 @@ void* llist_push(struct llist* list, const void* val, const size_t val_size);
  * @param src Linked list to push values from.
  * @returns Number of values copied.
  */
-size_t llist_copy(struct llist *dst, const struct llist src);
+size_t llist_copy(struct llist* dst, const struct llist src);
 
 /**
  * Get value at index of linked list.
