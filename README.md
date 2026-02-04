@@ -3,6 +3,8 @@ A project that encompasses both an assembler and a TUI emulator for the fictiona
 
 Written in C99 and complies with [POSIX.1-2001](https://pubs.opengroup.org/onlinepubs/000095399/) through to [POSIX.1-2024](https://pubs.opengroup.org/onlinepubs/9799919799/).
 
+![ngc demo gif](.img/ngc.gif)
+
 ## Assembler
 
 The assembler `ngc-asm` reads NandGame assembly instructions from a given file path and assembles NandGame machine code.
@@ -50,7 +52,7 @@ $ ngc-asm [-vh] [-o <path>] <path>
 The assembler supports a superset of the original NandGame assembly language.
 The main new language feature supported is macro definitions.
 
-The assembler intends to be backwards-compatible the original NandGame assembly language.
+The assembler intends to be backwards-compatible with the original NandGame assembly language.
 Any unintended differences to the original NandGame should be considered a bug.
 
 #### Macro definitions
