@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
 	struct parsed_file file = { 0 };
 
 	// Parse input file
-	size_t parse_result = parse_file(&err, &file, in_fp);
+	size_t parse_result = parse_file(&err, &file, in_fp, LANG_FEAT_ALL);
 	fclose(in_fp);
 
 	// Exit if any error occurred when parsing

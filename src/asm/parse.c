@@ -566,7 +566,7 @@ static long parse_inst_alu_targets(const char* tok)
 			return -1;
 
 		// Invalid - same target given multiple times
-		if ((target_parsed & result) > 0)
+		if (target_parsed & result)
 			return -1;
 
 		parsed_len += strlen(target);
@@ -694,9 +694,10 @@ static long parse_inst_alu_jump(const char* tok)
  * @param line_num Number of line in file.
  * @param line_st Assembly line with whitespace stripped.
  * @param line_len Length of assembly line.
+ * @param features Enabled assembly language features.
  * @returns Enum value indicating whether ALU instruction was valid and parsed successfully, or hint if file line could be another kind of instruction.
  */
-static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist* lines, const size_t line_num, const char* line_st, const size_t line_len)
+static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist* lines, const size_t line_num, const char* line_st, const size_t line_len, const signed int features)
 {
 	// Original NandGame assembler sets bits 14-16 of ALU instructions to 1 despite only bit 16 being relevant
 	#define NGC_IN_ALU (NGC_IN_CI | (1 << 14) | (1 << 13))
@@ -805,7 +806,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist
 			return ALU_INST_HINT_INST_DATA_E;
 
 		// Line could be a macro reference
-		if (!line_equals_ptr)
+		if (features & LANG_FEAT_MACROS && !line_equals_ptr)
 			return ALU_INST_HINT_REF_MACRO_E;
 	}
 
@@ -823,9 +824,10 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist
  * @param line_num Number of line in file.
  * @param line_st Assembly line with whitespace trimmed.
  * @param line_len Length of assembly line.
+ * @param features Enabled assembly language features.
  * @returns Whether data instruction was valid and parsed successfully.
  */
-static bool parse_inst_data(struct error* err, struct llist* lines, struct llist* refs_data, const size_t line_num, const char* line_tr, const size_t line_len)
+static bool parse_inst_data(struct error* err, struct llist* lines, struct llist* refs_data, const size_t line_num, const char* line_tr, const size_t line_len, const signed int features)
 {
 	// Get pointer to '=' char
 	// Whether 'A' is being targeted before '=' is checked before this function
@@ -853,7 +855,7 @@ static bool parse_inst_data(struct error* err, struct llist* lines, struct llist
 	}
 
 	// Validate data value can be a key
-	if (!key_valid(data_str)) {
+	if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(data_str)) {
 		error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", data_str);
 		return false;
 	}
@@ -889,9 +891,10 @@ static bool parse_inst_data(struct error* err, struct llist* lines, struct llist
  * @param line_num Number of line in file.
  * @param line Assembly line.
  * @param line_len Length of assembly line.
+ * @param features Enabled assembly language features.
  * @returns Whether line was valid and parsed successfully.
  */
-static bool parse_line(struct error* err, struct parsed_base* result, struct llist* defs_macros, enum parsed_scope* scope, const size_t line_num, const char* line, const size_t line_len)
+static bool parse_line(struct error* err, struct parsed_base* result, struct llist* defs_macros, enum parsed_scope* scope, const size_t line_num, const char* line, const size_t line_len, const int features)
 {
 	assert(result);
 	assert(scope);
@@ -917,68 +920,82 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 		goto exit;
 	}
 
-	// Build list of tokens in line
-	if (!str_split(&line_toks, line_tr, line_tr_len, WHITESPACE)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to split string");
-		goto exit;
-	}
-
-	// Copy first token
-	char line_tok_first[STR_CHARS(STRULL_MAX_LEN)] = { 0 };
-	if (!str_copy(line_tok_first, (char*)llist_get(line_toks, 0), STRULL_MAX_LEN)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-		goto exit;
-	}
-
-	// Convert first token to uppercase
-	if (!str_to(line_tok_first, line_tok_first, STRULL_MAX_LEN, toupper)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to convert string to uppercase");
-		goto exit;
-	}
-
-	// Parse line as non-instruction definitions
-	switch (str_ull(line_tok_first)) {
-		// DEFINE
-		case 0x444546494E45:
-			success = parse_def_data_define(err, &result->defs_data, line_toks);
+	if (features > 0) {
+		// Build list of tokens in line
+		if (!str_split(&line_toks, line_tr, line_tr_len, WHITESPACE)) {
+			error_init(err, ERRVAL_FAILURE, "Failed to split string");
 			goto exit;
+		}
 
-		// LABEL
-		case 0x4C4142454C:
-			success = parse_def_data_label(err, &result->defs_data, line_toks, result->lines.len - result->refs_macros.len); // To avoid double-counting during assembly, macro references do not count towards instruction count
+		// Copy first token
+		char line_tok_first[STR_CHARS(STRULL_MAX_LEN)] = { 0 };
+		if (!str_copy(line_tok_first, (char*)llist_get(line_toks, 0), STRULL_MAX_LEN)) {
+			error_init(err, ERRVAL_FAILURE, "Failed to copy string");
 			goto exit;
+		}
 
-		// %MACRO
-		case 0x254D4143524F:
-			// %MACRO statement only allowed in main scope
-			if (*scope != SCOPE_FILE_E || !defs_macros) {
-				error_init(err, ERRVAL_SYNTAX, "Nested %%MACRO statements not allowed");
-				goto exit;
-			}
+		// Convert first token to uppercase
+		if (!str_to(line_tok_first, line_tok_first, STRULL_MAX_LEN, toupper)) {
+			error_init(err, ERRVAL_FAILURE, "Failed to convert string to uppercase");
+			goto exit;
+		}
 
-			// Parse %MACRO statement
-			if (!parse_def_macro(err, defs_macros, line_toks))
+		// Parse line as non-instruction definitions
+		switch (str_ull(line_tok_first)) {
+			// DEFINE
+			case 0x444546494E45:
+				if (!(features & LANG_FEAT_DEF_DATA))
+					break;
+
+				success = parse_def_data_define(err, &result->defs_data, line_toks);
 				goto exit;
 
-			// Change scope to macro
-			*scope = SCOPE_MACRO_E;
+			// LABEL
+			case 0x4C4142454C:
+				if (!(features & LANG_FEAT_DEF_DATA))
+					break;
 
-			success = true;
-			goto exit;
-
-		// %END
-		case 0x25454E44:
-			// %END statement only allowed in macro scope
-			if (*scope != SCOPE_MACRO_E) {
-				error_init(err, ERRVAL_SYNTAX, "%%END statement must have an accompanying %%MACRO statement");
+				success = parse_def_data_label(err, &result->defs_data, line_toks, result->lines.len - result->refs_macros.len); // To avoid double-counting during assembly, macro references do not count towards instruction count
 				goto exit;
-			}
 
-			// Revert scope to file
-			*scope = SCOPE_FILE_E;
+			// %MACRO
+			case 0x254D4143524F:
+				if (!(features & LANG_FEAT_MACROS))
+					break;
 
-			success = true;
-			goto exit;
+				// %MACRO statement only allowed in main scope
+				if (*scope != SCOPE_FILE_E || !defs_macros) {
+					error_init(err, ERRVAL_SYNTAX, "Nested %%MACRO statements not allowed");
+					goto exit;
+				}
+
+				// Parse %MACRO statement
+				if (!parse_def_macro(err, defs_macros, line_toks))
+					goto exit;
+
+				// Change scope to macro
+				*scope = SCOPE_MACRO_E;
+
+				success = true;
+				goto exit;
+
+			// %END
+			case 0x25454E44:
+				if (!(features & LANG_FEAT_MACROS))
+					break;
+
+				// %END statement only allowed in macro scope
+				if (*scope != SCOPE_MACRO_E) {
+					error_init(err, ERRVAL_SYNTAX, "%%END statement must have an accompanying %%MACRO statement");
+					goto exit;
+				}
+
+				// Revert scope to file
+				*scope = SCOPE_FILE_E;
+
+				success = true;
+				goto exit;
+		}
 	}
 
 	// Remove all whitespace from line
@@ -991,7 +1008,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 	assert(line_st_len <= line_tr_len);
 
 	// Try parse line as ALU instruction
-	enum parse_inst_alu_result parse_inst_alu_result = parse_inst_alu(err, &result->lines, line_num, line_st, line_st_len);
+	enum parse_inst_alu_result parse_inst_alu_result = parse_inst_alu(err, &result->lines, line_num, line_st, line_st_len, features);
 	switch (parse_inst_alu_result) {
 		case ALU_INST_FAILURE_E:
 			success = false;
@@ -1000,7 +1017,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 			success = true;
 			break;
 		case ALU_INST_HINT_INST_DATA_E:
-			success = parse_inst_data(err, &result->lines, &result->refs_data, line_num, line_tr, line_tr_len);
+			success = parse_inst_data(err, &result->lines, &result->refs_data, line_num, line_tr, line_tr_len, features);
 			break;
 		case ALU_INST_HINT_REF_MACRO_E:
 			success = parse_ref_macro(err, &result->lines, &result->refs_data, &result->refs_macros, line_num, line_toks);
@@ -1016,7 +1033,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 	return success;
 }
 
-size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp)
+size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const int features)
 {
 	if (!file) {
 		error_init(err, ERRVAL_FAILURE, "Result struct is null");
@@ -1080,7 +1097,7 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp)
 		}
 
 		// Parse line
-		if (!parse_line(err, result_scope, defs_macros, &scope, line_num, f_line, f_line_len))
+		if (!parse_line(err, result_scope, defs_macros, &scope, line_num, f_line, f_line_len, features))
 			return line_num;
 	}
 
