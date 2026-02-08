@@ -98,6 +98,24 @@ struct parsed_file {
 };
 
 /**
+ * Get parsed data definition from list using key.
+ *
+ * @param defs_data Linked list of parsed data definitions.
+ * @param key Key of data definition to get.
+ * @returns Pointer to data definition. NULL if not found.
+ */
+struct parsed_def_data* parsed_def_data_get(const struct llist defs_data, const char* key);
+
+/**
+ * Get parsed macro definition from list using key.
+ *
+ * @param defs_macros Linked list of parsed macro definitions.
+ * @param key Key of macro definition to get.
+ * @returns Pointer to parsed macro definition. NULL if not found.
+ */
+struct parsed_def_macro* parsed_def_macro_get(const struct llist defs_macros, const char* key);
+
+/**
  * Free values within parsed macro reference.
  */
 void parsed_ref_macro_empty(struct parsed_ref_macro* ref_macro);
@@ -113,7 +131,7 @@ void parsed_ref_macro_free(struct parsed_ref_macro* ref_macro);
 void parsed_def_macro_empty(struct parsed_def_macro* def_macro);
 
 /**
- * Free macro definition.
+ * Free parsed macro definition.
  */
 void parsed_def_macro_free(struct parsed_def_macro* def_macro);
 

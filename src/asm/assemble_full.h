@@ -1,5 +1,5 @@
-#ifndef ASSEMBLE_SCOPED_H
-#define ASSEMBLE_SCOPED_H
+#ifndef ASSEMBLE_FULL_H
+#define ASSEMBLE_FULL_H
 
 #include "err.h"
 #include "llist.h"
@@ -13,6 +13,6 @@
  * @param file Parsed file.
  * @returns 0 if successfully assembled. >0 line number if error.
  */
-size_t assemble_file_scoped(struct error* err, struct llist* instructions, const struct parsed_file file);
+size_t assemble_file_full(struct error* err, struct llist* instructions, const struct parsed_file file);
 
 #endif

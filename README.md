@@ -58,7 +58,7 @@ Any unintended differences to the original NandGame should be considered a bug.
 #### Macro definitions
 
 > [!WARNING]
-> Macro support has been turned off due to a flawed initial implementation. A new implementation is being actively worked on.
+> Macro parameter support has been turned off due to a flawed initial implementation. A new implementation is being actively worked on. Macros without parameters are still supported.
 
 The assembler supports syntax for declaring macros.
 A macro definition begins with the opening statement `%MACRO <name> [<parameters> ...]`, followed by the instructions within the macro, and then completed with the closing statement `%END`.
