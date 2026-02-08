@@ -371,9 +371,10 @@ static bool parse_def_data_label(struct error* err, struct llist* defs_data, con
  * @param err Struct to store error.
  * @param defs_macros Linked list to push parsed result to.
  * @param line_toks Linked list of tokens in file line.
+ * @param features Enabled assembly language features.
  * @returns Whether %MACRO statement was valid and parsed successfully.
  */
-static bool parse_def_macro(struct error* err, struct llist* defs_macros, const struct llist line_toks)
+static bool parse_def_macro(struct error* err, struct llist* defs_macros, const struct llist line_toks, const int features)
 {
 	#define TOKS_DEF_MACRO_MIN 2
 
@@ -399,7 +400,11 @@ static bool parse_def_macro(struct error* err, struct llist* defs_macros, const 
 
 			// Parameters
 			default:
-				;
+				if (!(features & LANG_FEAT_DEF_MACRO_PARAMS)) {
+					error_init(err, ERRVAL_SYNTAX, "Invalid value given in %MACRO statement: '%s'", tok);
+					goto error;
+				}
+
 				char param_key[PARSED_KEY_CHARS] = { 0 };
 				if (!parse_key(err, param_key, tok, "%MACRO statement"))
 					goto error;
@@ -442,9 +447,10 @@ static bool parse_def_macro(struct error* err, struct llist* defs_macros, const 
  * @param refs_macros Linked list to push parsed result to.
  * @param line_num Number of line in file.
  * @param line_toks Linked list of tokens in file line.
+ * @param features Enabled assembly language features.
  * @returns Whether macro reference was valid and parsed successfully.
  */
-static bool parse_ref_macro(struct error* err, struct llist* lines, struct llist* refs_data, struct llist* refs_macros, const size_t line_num, const struct llist line_toks)
+static bool parse_ref_macro(struct error* err, struct llist* lines, struct llist* refs_data, struct llist* refs_macros, const size_t line_num, const struct llist line_toks, const int features)
 {
 	#define TOKS_REF_MACRO_MIN 1
 
@@ -467,7 +473,11 @@ static bool parse_ref_macro(struct error* err, struct llist* lines, struct llist
 
 			// Parameters
 			default:
-				;
+				if (!(features & LANG_FEAT_DEF_MACRO_PARAMS)) {
+					error_init(err, ERRVAL_SYNTAX, "Invalid value given after macro reference: '%s'", tok);
+					goto error;
+				}
+
 				// Try parse parameter as number
 				long parsed_number = parse_number(tok);
 				if (parsed_number >= 0) {
@@ -806,7 +816,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist
 			return ALU_INST_HINT_INST_DATA_E;
 
 		// Line could be a macro reference
-		if (features & LANG_FEAT_MACROS && !line_equals_ptr)
+		if (features & LANG_FEAT_DEF_MACROS && !line_equals_ptr)
 			return ALU_INST_HINT_REF_MACRO_E;
 	}
 
@@ -960,7 +970,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 
 			// %MACRO
 			case 0x254D4143524F:
-				if (!(features & LANG_FEAT_MACROS))
+				if (!(features & LANG_FEAT_DEF_MACROS))
 					break;
 
 				// %MACRO statement only allowed in main scope
@@ -970,7 +980,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 				}
 
 				// Parse %MACRO statement
-				if (!parse_def_macro(err, defs_macros, line_toks))
+				if (!parse_def_macro(err, defs_macros, line_toks, features))
 					goto exit;
 
 				// Change scope to macro
@@ -981,7 +991,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 
 			// %END
 			case 0x25454E44:
-				if (!(features & LANG_FEAT_MACROS))
+				if (!(features & LANG_FEAT_DEF_MACROS))
 					break;
 
 				// %END statement only allowed in macro scope
@@ -1020,7 +1030,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 			success = parse_inst_data(err, &result->lines, &result->refs_data, line_num, line_tr, line_tr_len, features);
 			break;
 		case ALU_INST_HINT_REF_MACRO_E:
-			success = parse_ref_macro(err, &result->lines, &result->refs_data, &result->refs_macros, line_num, line_toks);
+			success = parse_ref_macro(err, &result->lines, &result->refs_data, &result->refs_macros, line_num, line_toks, features);
 			break;
 		default:
 			error_init(err, ERRVAL_FAILURE, "Unknown ALU instruction parse result: %d", parse_inst_alu_result);

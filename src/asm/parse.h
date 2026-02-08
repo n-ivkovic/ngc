@@ -6,9 +6,10 @@
 
 #include <stdio.h>
 
-#define LANG_FEAT_DEF_DATA (1 << 0)
-#define LANG_FEAT_MACROS   (1 << 1)
-#define LANG_FEAT_ALL      (LANG_FEAT_DEF_DATA | LANG_FEAT_MACROS)
+#define LANG_FEAT_DEF_DATA         (1 << 0)
+#define LANG_FEAT_DEF_MACROS       (1 << 1)
+#define LANG_FEAT_DEF_MACRO_PARAMS (1 << 2)
+#define LANG_FEAT_ALL              (LANG_FEAT_DEF_DATA | LANG_FEAT_DEF_MACROS | LANG_FEAT_DEF_MACRO_PARAMS)
 
 /**
  * Parse assembly file.
