@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
 	char* in_path = NULL;
 	char* out_path = NULL;
 
-	char opt;
+	int opt;
 	extern char* optarg;
 	extern int optind, optopt;
 
