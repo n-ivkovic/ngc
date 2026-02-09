@@ -322,7 +322,7 @@ static bool parse_def_data_define(struct error* err, struct llist* defs_data, co
  * @param err Struct to store error.
  * @param defs_data Linked list to push parsed result to.
  * @param line_num Number of line in file.
- * @param toks Linked list of tokens in file line.
+ * @param line_toks Linked list of tokens in file line.
  * @param inst_num Number of instructions parsed.
  * @returns Whether LABEL statement was valid and parsed successfully.
  */
@@ -836,7 +836,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist
  * @param lines Linked list to push parsed result.
  * @param refs_data Linked list to push parsed result.
  * @param line_num Number of line in file.
- * @param line_st Assembly line with whitespace trimmed.
+ * @param line_tr Assembly line with whitespace trimmed.
  * @param line_len Length of assembly line.
  * @param features Enabled assembly language features.
  * @returns Whether data instruction was valid and parsed successfully.

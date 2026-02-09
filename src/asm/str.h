@@ -34,7 +34,7 @@ char* str_copy(char* dst, const char* src, const size_t len);
 char* str_to(char* dst, const char* src, const size_t len, int (*to)(const int));
 
 /**
- * Remove all chars from string using the given function
+ * Remove all chars from string using the given function.
  *
  * @param dst Output string.
  * @param src Input string.
@@ -66,7 +66,7 @@ char* str_trim(char* dst, const char* src, const size_t len);
 int str_comp(const char* s1, const char* s2, const size_t len, int (*to)(const int));
 
 /**
- * Split string by delimeter to linked list of strings
+ * Split string by delimeter to linked list of strings.
  *
  * @param list Linked list to store split string.
  * @param src Input string.

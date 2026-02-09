@@ -103,6 +103,12 @@ static void llist_val_free(void* val)
 	if (val) free(val);
 }
 
+/**
+ * Free linked list node using delegate function to free value.
+ *
+ * @param node Node to free.
+ * @param f Delegate function used to free value.
+ */
 static void llist_node_free(struct llist_node* node, void (*f)(void*))
 {
 	if (!node)
