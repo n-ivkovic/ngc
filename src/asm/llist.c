@@ -131,7 +131,7 @@ void llist_delegate_empty(struct llist* list, void (*f)(void*))
 	}
 }
 
-inline void llist_empty(struct llist* list)
+void llist_empty(struct llist* list)
 {
 	llist_delegate_empty(list, llist_val_free);
 }
@@ -178,7 +178,7 @@ void llist_part_delegate_empty(struct llist* list, const size_t ind, void (*f)(v
 	}
 }
 
-inline void llist_part_empty(struct llist* list, const size_t ind)
+void llist_part_empty(struct llist* list, const size_t ind)
 {
 	llist_part_delegate_empty(list, ind, llist_val_free);
 }
