@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 /**
  * Expanded parsed assembly line.
@@ -20,6 +21,8 @@ struct expanded_line {
  */
 struct expanded_base {
 	struct expanded_base* parent;
+	size_t line_num;
+	size_t inst_len;
 	struct llist macros; // llist of expanded_base
 	struct llist lines; // llist of expanded_line
 	struct llist refs_data; // llist of char[PARSED_KEY_CHARS]
@@ -112,19 +115,16 @@ static struct parsed_def_data* def_data_search(const struct expanded_base* paren
  * @param expanded Struct to store expanded/unwound result.
  * @param parsed Parsed assembly.
  * @param defs_macros Linked list of parsed macro definitions.
- * @param line_num Starting line number.
  * @returns 0 if successfully expanded/unwound. >0 line number if error.
  */
-static size_t expand_parsed(struct error* err, struct expanded_base* expanded, const struct parsed_base parsed, const struct llist defs_macros, const size_t line_num)
+static size_t expand_parsed(struct error* err, struct expanded_base* expanded, const struct parsed_base parsed, const struct llist defs_macros)
 {
 	assert(expanded);
 
 	if (!list_copy(err, &expanded->refs_data, parsed.refs_data))
-		return line_num;
+		return (expanded->line_num > 0) ? expanded->line_num : 1;
 
-	if (!list_copy(err, &expanded->defs_data, parsed.defs_data))
-		return line_num;
-
+	// Iterate through lines
 	struct llist_node* line_node = parsed.lines.head;
 	for (size_t lines_ind = 0; line_node && lines_ind < parsed.lines.len; line_node = line_node->next, lines_ind++) {
 		struct parsed_line* line = line_node->val;
@@ -132,14 +132,17 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 		switch (line->type) {
 			case LINE_INST_E:
 			case LINE_REF_DATA_E:
+				// Push line as-is
 				if (!lines_push(err, &expanded->lines, line->type, line->line_num, line->val))
 					return line->line_num;
+
+				expanded->inst_len++;
 				break;
 
 			case LINE_REF_MACRO_E:
 				;
 				// Get macro referenced by line
-				struct parsed_ref_macro* ref_macro = (struct parsed_ref_macro*)llist_get(parsed.refs_macros, line->val);
+				struct parsed_ref_macro* ref_macro = llist_get(parsed.refs_macros, line->val);
 				if (!ref_macro) {
 					error_init(err, ERRVAL_FAILURE, "Macro reference not in list: %zu", line->val);
 					return line->line_num;
@@ -152,9 +155,9 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 					return line->line_num;
 				}
 
-				// Build expanded macro
-				struct expanded_base macro_expanded = { .parent = expanded };
-				size_t macro_expanded_result = expand_parsed(err, &macro_expanded, def_macro->base, defs_macros, line->line_num);
+				// Recusively build expanded macro
+				struct expanded_base macro_expanded = { .parent = expanded, .line_num = line->line_num };
+				size_t macro_expanded_result = expand_parsed(err, &macro_expanded, def_macro->base, defs_macros);
 				if (macro_expanded_result > 0)
 					return macro_expanded_result;
 
@@ -162,21 +165,81 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 					// TODO: Support macro parameters
 				}
 
-				// Push macro
+				// Push expanded macro
 				if (!llist_push(&expanded->macros, &macro_expanded, sizeof(macro_expanded))) {
 					error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro to list");
 					return line->line_num;
 				}
 
-				// Push line
+				// Push line referencing expanded macro
 				if (!lines_push(err, &expanded->lines, line->type, line->line_num, expanded->macros.len - 1))
 					return line->line_num;
 
+				expanded->inst_len += macro_expanded.inst_len;
 				break;
 
 			default:
 				error_init(err, ERRVAL_FAILURE, "Unknown line type: %d", line->type);
 				return line->line_num;
+		}
+	}
+
+	size_t pc_offset = (expanded->parent) ? expanded->parent->inst_len : 0;
+	struct llist_node* macro_node = expanded->macros.head;
+
+	// Iterate through data definitions
+	struct llist_node* data_node = parsed.defs_data.head;
+	for (size_t data_ind = 0; data_node && data_ind < parsed.defs_data.len; data_node = data_node->next, data_ind++) {
+		struct parsed_def_data* data = data_node->val;
+
+		// Add instruction count of macros referenced beforehand to program counter offset
+		if (macro_node) {
+			struct expanded_base* macro = macro_node->val;
+			if (data->line_num >= macro->line_num) {
+				pc_offset += macro->inst_len;
+				macro_node = macro_node->next;
+			}
+		}
+
+		switch (data->type) {
+			case DATA_CONST_E:
+				// Push data definition as-is
+				if (!llist_push(&expanded->defs_data, data, sizeof(*data))) {
+					error_init(err, ERRVAL_FAILURE, "Failed to push data definition to list");
+					return data->line_num;
+				}
+
+				break;
+
+			case DATA_LABEL_E:
+				// No program counter offset to account for - push data definition as-is
+				if (pc_offset == 0) {
+					if (!llist_push(&expanded->defs_data, data, sizeof(*data))) {
+						error_init(err, ERRVAL_FAILURE, "Failed to push data definition to list");
+						return data->line_num;
+					}
+
+					break;
+				}
+
+				// Assemble copy of data definition with program counter offset added
+				struct parsed_def_data data_offset = { .type = data->type, .line_num = data->line_num, .val = data->val + pc_offset };
+				if (!str_copy(data_offset.key, data->key, STR_SIZE(strlen(data->key)))) {
+					error_init(err, ERRVAL_FAILURE, "Failed to copy string");
+					return data->line_num;
+				}
+
+				// Push data definition
+				if (!llist_push(&expanded->defs_data, &data_offset, sizeof(data_offset))) {
+					error_init(err, ERRVAL_FAILURE, "Failed to push data definition to list");
+					return data->line_num;
+				}
+
+				break;
+
+			default:
+				error_init(err, ERRVAL_FAILURE, "Unknown data definition type: %d", data->type);
+				return data->line_num;
 		}
 	}
 
@@ -207,13 +270,10 @@ static bool inst_push(struct error* err, struct llist* instructions, const ngc_w
  * @param err Struct to store error.
  * @param instructions Linked list to push NGC instructions.
  * @param expanded Expanded/unwound assembly.
- * @param pc_offset_init Initial program counter offset.
  * @returns 0 if successfully assembled. >0 line number if error.
  */
-static size_t assemble_expanded(struct error* err, struct llist* instructions, const struct expanded_base expanded, const size_t pc_offset_init)
+static size_t assemble_expanded(struct error* err, struct llist* instructions, const struct expanded_base expanded)
 {
-	size_t pc_offset = pc_offset_init;
-
 	struct llist_node* line_node = expanded.lines.head;
 	for (size_t lines_ind = 0; line_node && lines_ind < expanded.lines.len; line_node = line_node->next, lines_ind++) {
 		struct parsed_line* line = line_node->val;
@@ -222,6 +282,7 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 			case LINE_INST_E:
 				if (!inst_push(err, instructions, (ngc_word_t)line->val))
 					return line->line_num;
+
 				break;
 
 			case LINE_REF_DATA_E:
@@ -240,22 +301,8 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 					return line->line_num;
 				}
 
-				// Assemble data value
-				size_t data_val;
-				switch (def_data->type) {
-					case DATA_CONST_E:
-						data_val = def_data->val;
-						break;
-					case DATA_LABEL_E:
-						data_val = def_data->val + pc_offset;
-						break;
-					default:
-						error_init(err, ERRVAL_FAILURE, "Unknown expanded data definition type: %d", def_data->type);
-						return line->line_num;
-				}
-
 				// Push data value as NGC data instruction
-				if (!inst_push(err, instructions, (ngc_word_t)data_val))
+				if (!inst_push(err, instructions, (ngc_word_t)def_data->val))
 					return line->line_num;
 
 				break;
@@ -269,14 +316,10 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 					return line->line_num;
 				}
 
-				// Assemble macro
-				size_t instructions_len_prev = instructions->len;
-				size_t macro_assemble_result = assemble_expanded(err, instructions, *macro, pc_offset);
+				// Recursively assemble macro
+				size_t macro_assemble_result = assemble_expanded(err, instructions, *macro);
 				if (macro_assemble_result > 0)
 					return macro_assemble_result;
-
-				// Add number of instructions assembled from macro to program counter offset
-				pc_offset += instructions->len - instructions_len_prev;
 
 				break;
 
@@ -305,12 +348,12 @@ size_t assemble_file_full(struct error* err, struct llist* instructions, const s
 	}
 
 	// Expand/unwind macros from parsed result
-	result = expand_parsed(err, &file_expanded, file.base, file.defs_macros, result);
+	result = expand_parsed(err, &file_expanded, file.base, file.defs_macros);
 	if (result > 0)
 		goto exit;
 
 	// Assemble instructions from expanded/unwound result
-	result = assemble_expanded(err, instructions, file_expanded, 0);
+	result = assemble_expanded(err, instructions, file_expanded);
 	if (result > 0)
 		goto exit;
 

@@ -60,7 +60,7 @@ static bool key_valid(const char* tok)
 /**
  * Get index of key in linked list.
  *
- * @param key Key to search for
+ * @param key Key to search for.
  * @param list Linked list to search.
  * @returns Index of key in linked list. -1 if not found.
  */
@@ -249,16 +249,17 @@ static bool parse_key(struct error* err, char* key, const char* tok, const char*
  *
  * @param err Struct to store error.
  * @param defs_data Linked list to push parsed result to.
+ * @param line_num Number of line in file.
  * @param line_toks Linked list of tokens in file line.
  * @returns Whether DEFINE statement was valid and parsed successfully.
  */
-static bool parse_def_data_define(struct error* err, struct llist* defs_data, const struct llist line_toks)
+static bool parse_def_data_define(struct error* err, struct llist* defs_data, const size_t line_num, const struct llist line_toks)
 {
 	#define TOKS_DEFINE_LEN 3
 
 	assert(defs_data);
 
-	struct parsed_def_data result = { .type = DATA_CONST_E };
+	struct parsed_def_data result = { .type = DATA_CONST_E, .line_num = line_num };
 
 	// Parse one token at a time
 	struct llist_node* tok_node = line_toks.head;
@@ -320,14 +321,16 @@ static bool parse_def_data_define(struct error* err, struct llist* defs_data, co
  *
  * @param err Struct to store error.
  * @param defs_data Linked list to push parsed result to.
+ * @param line_num Number of line in file.
  * @param toks Linked list of tokens in file line.
+ * @param inst_num Number of instructions parsed.
  * @returns Whether LABEL statement was valid and parsed successfully.
  */
-static bool parse_def_data_label(struct error* err, struct llist* defs_data, const struct llist line_toks, const size_t inst_num)
+static bool parse_def_data_label(struct error* err, struct llist* defs_data, const size_t line_num, const struct llist line_toks, const size_t inst_num)
 {
 	#define TOKS_LABEL_LEN 2
 
-	struct parsed_def_data result = { .type = DATA_LABEL_E, .val = inst_num };
+	struct parsed_def_data result = { .type = DATA_LABEL_E, .line_num = line_num, .val = inst_num };
 
 	struct llist_node* tok_node = line_toks.head;
 	for (size_t tok_ind = 0; tok_ind <= TOKS_LABEL_LEN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
@@ -370,17 +373,18 @@ static bool parse_def_data_label(struct error* err, struct llist* defs_data, con
  *
  * @param err Struct to store error.
  * @param defs_macros Linked list to push parsed result to.
+ * @param line_num Number of line in file.
  * @param line_toks Linked list of tokens in file line.
  * @param features Enabled assembly language features.
  * @returns Whether %MACRO statement was valid and parsed successfully.
  */
-static bool parse_def_macro(struct error* err, struct llist* defs_macros, const struct llist line_toks, const int features)
+static bool parse_def_macro(struct error* err, struct llist* defs_macros, const size_t line_num, const struct llist line_toks, const int features)
 {
 	#define TOKS_DEF_MACRO_MIN 2
 
 	assert(defs_macros);
 
-	struct parsed_def_macro result = { 0 };
+	struct parsed_def_macro result = { .line_num = line_num };
 
 	struct llist_node* tok_node = line_toks.head;
 	for (size_t tok_ind = 0; (tok_node && tok_ind < line_toks.len) || tok_ind < TOKS_DEF_MACRO_MIN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
@@ -957,7 +961,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 				if (!(features & LANG_FEAT_DEF_DATA))
 					break;
 
-				success = parse_def_data_define(err, &result->defs_data, line_toks);
+				success = parse_def_data_define(err, &result->defs_data, line_num, line_toks);
 				goto exit;
 
 			// LABEL
@@ -965,7 +969,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 				if (!(features & LANG_FEAT_DEF_DATA))
 					break;
 
-				success = parse_def_data_label(err, &result->defs_data, line_toks, result->lines.len - result->refs_macros.len); // To avoid double-counting during assembly, macro references do not count towards instruction count
+				success = parse_def_data_label(err, &result->defs_data, line_num, line_toks, result->lines.len - result->refs_macros.len); // To avoid double-counting during assembly, macro references do not count towards instruction count
 				goto exit;
 
 			// %MACRO
@@ -980,7 +984,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct lli
 				}
 
 				// Parse %MACRO statement
-				if (!parse_def_macro(err, defs_macros, line_toks, features))
+				if (!parse_def_macro(err, defs_macros, line_num, line_toks, features))
 					goto exit;
 
 				// Change scope to macro

@@ -67,6 +67,7 @@ enum parsed_def_data_type {
 struct parsed_def_data {
 	char key[PARSED_KEY_CHARS];
 	enum parsed_def_data_type type;
+	size_t line_num;
 	size_t val; // Parsed number if type is DATA_CONST_E, instruction count if type is DATA_LABEL_E
 };
 
@@ -85,6 +86,7 @@ struct parsed_base {
  */
 struct parsed_def_macro {
 	char key[PARSED_KEY_CHARS];
+	size_t line_num;
 	struct llist params; // llist of char[PARSED_KEY_CHARS]
 	struct parsed_base base;
 };
