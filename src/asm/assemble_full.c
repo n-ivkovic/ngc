@@ -88,27 +88,6 @@ static bool lines_push(struct error* err, struct llist* lines, const enum parsed
 }
 
 /**
- * Search for data definition.
- *
- * @param parent Parent expanded assembly of current scope.
- * @param defs_data Linked list of expanded data definitions.
- * @param data_key Key of data to search.
- * @returns Pointer to expanded data definition. NULL if not found.
- */
-static struct parsed_def_data* def_data_search(const struct expanded_base* parent, const struct llist defs_data, const char* data_key)
-{
-	// Get data definition using referenced data key
-	struct parsed_def_data* def_data = parsed_def_data_get(defs_data, data_key);
-	if (def_data)
-		return def_data;
-
-	if (!parent)
-		return NULL;
-
-	return def_data_search(parent->parent, parent->defs_data, data_key);
-}
-
-/**
  * Expand/unwind macros from parsed result.
  *
  * @param err Struct to store error.
@@ -299,8 +278,17 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 					return line->line_num;
 				}
 
-				// Get data definition using referenced data key
-				struct parsed_def_data* def_data = def_data_search(expanded.parent, expanded.defs_data, data_key);
+				// Try find data definition within current scope using referenced data key
+				struct parsed_def_data* def_data = parsed_def_data_get(expanded.defs_data, data_key);
+
+				// Data definition not within current scope - try find data definition within root (file) scope using referenced data key
+				if (!def_data && expanded.parent) {
+					struct expanded_base* root = expanded.parent;
+					for (; root->parent; root = root->parent);
+					def_data = parsed_def_data_get(root->defs_data, data_key);
+				}
+
+				// Data definition not within any scope
 				if (!def_data) {
 					error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", data_key);
 					return line->line_num;
