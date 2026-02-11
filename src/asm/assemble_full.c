@@ -184,15 +184,20 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 		}
 	}
 
-	size_t pc_offset = (expanded->parent) ? expanded->parent->inst_len : 0;
-	struct llist_node* macro_node = expanded->macros.head;
+	// Use number of existing instructions as initial program counter offset
+	size_t pc_offset = 0;
+	for (struct expanded_base* parent = expanded->parent; parent; parent = parent->parent)
+	{
+		pc_offset += parent->inst_len;
+	}
 
 	// Iterate through data definitions
+	struct llist_node* macro_node = expanded->macros.head;
 	struct llist_node* data_node = parsed.defs_data.head;
 	for (size_t data_ind = 0; data_node && data_ind < parsed.defs_data.len; data_node = data_node->next, data_ind++) {
 		struct parsed_def_data* data = data_node->val;
 
-		// Add instruction count of macros referenced beforehand to program counter offset
+		// Add number of instructions in macros referenced beforehand to program counter offset
 		if (macro_node) {
 			struct expanded_base* macro = macro_node->val;
 			if (data->line_num >= macro->line_num) {
