@@ -1,0 +1,6 @@
+%MACRO macro
+LABEL label
+D&A
+%END
+
+A = label

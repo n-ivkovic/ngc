@@ -1,0 +1,61 @@
+%MACRO macro.1.0 param1
+#Comment
+A=param1
+D&A
+%END
+
+%MACRO macro.1.1 param1
+
+# Comment
+A = param1
+
+D & A
+
+%END
+
+                %MACRO                   macro.1.2              param1                       
+
+                #           Comment                  
+            A           =               param1
+
+                    D           &               A
+
+                        %END             
+ 
+macro.1.0 0x4D31
+macro.1.1 0x4D31
+                macro.1.2            0x4D31                           
+
+%MACRO macro.2.0 param1 param2
+#Comment
+A=param1
+A=param2
+D&A
+%END
+
+%MACRO macro.2.1 param1 param2
+
+# Comment
+A = param1
+A = param2
+
+D & A
+
+%END
+
+                 %MACRO                 macro.2.2               param1              param2                      
+                                 
+                        #                    Comment                
+
+             A              =                       param1              
+
+                    A            =              param2              
+                                 
+            D           &               A
+
+
+                    %END                        
+
+macro.2.0 0x4D32 0x4D33
+macro.2.1 0x4D32 0x4D33
+                macro.2.2                   0x4D32                         0x4D33                      

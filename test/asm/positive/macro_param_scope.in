@@ -1,0 +1,37 @@
+DEFINE file.define 0xD0
+LABEL file.label
+A = file.label
+A = file.define
+
+%MACRO macro.a param.define param.label
+DEFINE macro.define 0xDA
+LABEL macro.label
+A = macro.label
+A = macro.define
+
+A = param.label
+A = param.define
+
+A = file.label
+A = file.define
+
+macro.b macro.define macro.label
+macro.b param.define param.label
+macro.b file.define file.label
+%END
+
+%MACRO macro.b param.define param.label
+DEFINE macro.define 0xDB
+LABEL macro.label
+A = macro.label
+A = macro.define
+
+A = param.label
+A = param.define
+
+A = file.label
+A = file.define
+%END
+
+macro.a file.define file.label
+macro.b file.define file.label
