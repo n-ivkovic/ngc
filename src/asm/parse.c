@@ -1062,7 +1062,10 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 	char f_line[STR_CHARS(FILE_COLS_MAX + 1)] = { 0 }; // +1 to detect when max exceeded
 	size_t line_num = 0;
 
+	// Initialise scope - set to file
 	enum parsed_scope scope = SCOPE_FILE_E;
+	struct parsed_base* result_scope = &file->base;
+	struct llist* defs_macros = &file->defs_macros;
 
 	// Parse each line of file
 	while (fgets(f_line, sizeof(f_line), fp) != 0 && line_num <= FILE_LINES_MAX) {
@@ -1082,37 +1085,40 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 			return line_num;
 		}
 
-		struct parsed_base* result_scope;
-		struct llist* defs_macros = NULL;
-
-		// Set scope of line being parsed
-		switch (scope) {
-			case SCOPE_FILE_E:
-				result_scope = &file->base;
-				defs_macros = &file->defs_macros;
-				break;
-			case SCOPE_MACRO_E:
-				;
-				// Get last macro definition
-				struct llist_node* macros_node = file->defs_macros.head;
-				for (size_t macros_ind = 0; macros_node && macros_node->next && macros_ind < file->defs_macros.len; macros_node = macros_node->next, macros_ind++);
-
-				if (!macros_node) {
-					error_init(err, ERRVAL_FAILURE, "Failed to find macro scope");
-					return line_num;
-				}
-
-				// Set destination to last macro in list
-				result_scope = (struct parsed_base*)&(((struct parsed_def_macro*)macros_node->val)->base);
-				break;
-			default:
-				error_init(err, ERRVAL_FAILURE, "Unknown result scope: %d", scope);
-				return line_num;
-		}
-
 		// Parse line
+		enum parsed_scope scope_prev = scope;
 		if (!parse_line(err, result_scope, defs_macros, &scope, line_num, f_line, f_line_len, features))
 			return line_num;
+
+		// Line has changed scope - set up scope of next line to parse
+		if (scope != scope_prev) {
+			switch (scope) {
+				case SCOPE_FILE_E:
+					defs_macros = &file->defs_macros;
+					result_scope = &file->base;
+					break;
+
+				case SCOPE_MACRO_E:
+					defs_macros = NULL;
+
+					// Get last macro definition
+					struct llist_node* macros_node = file->defs_macros.head;
+					for (size_t macros_ind = 0; macros_node && macros_node->next && macros_ind < file->defs_macros.len; macros_node = macros_node->next, macros_ind++);
+
+					if (!macros_node) {
+						error_init(err, ERRVAL_FAILURE, "Failed to find macro scope");
+						return line_num;
+					}
+
+					// Set destination to last macro in list
+					result_scope = (struct parsed_base*)&(((struct parsed_def_macro*)macros_node->val)->base);
+					break;
+
+				default:
+					error_init(err, ERRVAL_FAILURE, "Unknown result scope: %d", scope);
+					return line_num;
+			}
+		}
 	}
 
 	// Validate all macro definitions have been ended

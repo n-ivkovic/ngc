@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
 			case 'v':
 			case 'V':
 			case 'h':
-				printf("ngc-asm v0.3.0%s", EOL);
+				printf("ngc-asm v0.3.1%s", EOL);
 				return 0;
 			case ':':
 				print_err("Option -%c requires an argument", optopt);
