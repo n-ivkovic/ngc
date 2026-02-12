@@ -134,18 +134,14 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 					return line->line_num;
 				}
 
-				// Recusively build expanded macro
-				struct expanded_base macro_expanded = { .parent = expanded, .line_num = line->line_num };
-				size_t macro_expanded_result = expand_parsed(err, &macro_expanded, def_macro->base, defs_macros);
-				if (macro_expanded_result > 0)
-					return macro_expanded_result;
-
 				if (def_macro->params.len > 0 || ref_macro->params.len > 0) {
 					// TODO: Support macro parameters
 				}
 
-				// Push expanded macro
-				if (!llist_push(&expanded->macros, &macro_expanded, sizeof(macro_expanded))) {
+				// Build initial expanded macro and push to list
+				struct expanded_base macro_expanded_init = { .parent = expanded, .line_num = line->line_num };
+				struct expanded_base* macro_expanded = llist_push(&expanded->macros, &macro_expanded_init, sizeof(macro_expanded_init));
+				if (!macro_expanded) {
 					error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro to list");
 					return line->line_num;
 				}
@@ -154,7 +150,12 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 				if (!lines_push(err, &expanded->lines, line->type, line->line_num, expanded->macros.len - 1))
 					return line->line_num;
 
-				expanded->inst_len += macro_expanded.inst_len;
+				// Recusively build expanded macro
+				size_t macro_expanded_result = expand_parsed(err, macro_expanded, def_macro->base, defs_macros);
+				if (macro_expanded_result > 0)
+					return macro_expanded_result;
+
+				expanded->inst_len += macro_expanded->inst_len;
 				break;
 
 			default:
@@ -165,8 +166,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 
 	// Use number of existing instructions as initial program counter offset
 	size_t pc_offset = 0;
-	for (struct expanded_base* parent = expanded->parent; parent; parent = parent->parent)
-	{
+	for (struct expanded_base* parent = expanded->parent; parent; parent = parent->parent) {
 		pc_offset += parent->inst_len;
 	}
 
