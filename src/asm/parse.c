@@ -492,6 +492,11 @@ static bool parse_ref_macro(struct error* err, struct llist* lines, struct llist
 					break;
 				}
 
+				if (!(features & LANG_FEAT_DEF_DATA)) {
+					error_init(err, ERRVAL_SYNTAX, "Invalid macro parameter value: '%s'", tok);
+					goto error;
+				}
+
 				// Parse parameter as data reference
 				char ref_data_key[PARSED_KEY_CHARS] = { 0 };
 				if (!parse_key(err, ref_data_key, tok, "macro reference"))
