@@ -72,13 +72,13 @@ push.D
 ```
 
 Some language features are either forbidden or behave differently if they are used within a macro definition.
-The table below lists differences in language features between usage within a regular assembly and usage within a macro definition.
+The table below lists differences in language features between usage within regular assembly and usage within a macro definition.
 
-| Feature               | Within regular assembly     | Within macro definition      |
-| ---                   | ---                         | ---                          |
-| `DEFINE` statements   | Allowed, scoped to the file | Allowed, scoped to the macro |
-| `LABEL` statements    | Allowed, scoped to the file | Allowed, scoped to the macro |
-| `%MACRO` definitions  | Allowed                     | Forbidden                    |
+| Feature               | Within regular assembly                      | Within macro definition                                  |
+| ---                   | ---                                          | ---                                                      |
+| `DEFINE` statements   | Value can be referenced anywhere in the file | Value can be referenced only within the macro definition |
+| `LABEL` statements    | Value can be referenced anywhere in the file | Value can be referenced only within the macro definition |
+| `%MACRO` definitions  | Allowed                                      | Forbidden                                                |
 
 Like `DEFINE` and `LABEL` statements, a macro can be called both before and after its definition.
 
