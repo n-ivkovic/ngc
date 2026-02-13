@@ -50,15 +50,14 @@ int main(int argc, char* argv[])
 	extern int optind, optopt;
 
 	// Set vars from opts
-	while ((opt = getopt(argc, argv, ":i:o:hvV")) != -1) {
+	while ((opt = getopt(argc, argv, ":i:o:vV")) != -1) {
 		switch (opt) {
 			case 'o':
 				out_path = optarg;
 				break;
 			case 'v':
 			case 'V':
-			case 'h':
-				printf("ngc-asm v0.3.1%s", EOL);
+				printf("ngc-asm v0.4.0%s", EOL);
 				return 0;
 			case ':':
 				print_err("Option -%c requires an argument", optopt);
@@ -79,13 +78,8 @@ int main(int argc, char* argv[])
 		in_path = argv[optind];
 	}
 
-	if (!in_path) {
-		print_err("No assembly file given");
-		return ERRVAL_ARGS;
-	}
-
 	// Open input file
-	bool in_stdin = strncmp(in_path, PATH_STDIN, strlen(PATH_STDIN)) == 0;
+	bool in_stdin = !in_path || strncmp(in_path, PATH_STDIN, strlen(PATH_STDIN) + 1) == 0;
 	FILE* in_fp = in_stdin ? stdin : fopen(in_path, "r");
 	if (!in_fp) {
 		print_file_err(in_stdin ? "stdin" : in_path, "Failed to open file");
@@ -119,7 +113,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Open output file
-	bool out_stdout = !out_path || strncmp(out_path, PATH_STDOUT, strlen(PATH_STDOUT)) == 0;
+	bool out_stdout = !out_path || strncmp(out_path, PATH_STDOUT, strlen(PATH_STDOUT) + 1) == 0;
 	FILE* out_fp = out_stdout ? stdout : fopen(out_path, "wb");
 	if (!out_fp) {
 		llist_empty(&instructions);

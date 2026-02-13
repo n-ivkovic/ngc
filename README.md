@@ -27,15 +27,14 @@ NandGame machine code is output using the system's endianness.
 ### CLI usage
 
 ```
-$ ngc-asm [-vVh] [-o <path>] <path>
+$ ngc-asm [-vV] [-o <path>] [<path>]
 ```
 
 | Option      | Description |
 | ---         | ---         |
-| `<path>`    | Path to assembly file. If `-` is used, then file will be read from `stdin`. |
-| -o `<path>` | Path to output assembled machine code. If not specified, assembled machine code will be output to `stdout`. |
+| `<path>`    | Path to assembly file. File will be read from `stdin` if a path is not specified or path is `-`. |
+| -o `<path>` | Path to output assembled machine code. Assembled machine code will be output to `stdout` if a path is not specified. |
 | -v, -V      | Print version and exit. |
-| -h          | Print help and exit. |
 
 #### Exit statuses
 
@@ -101,12 +100,6 @@ The emulator `ngc-emu` loads NandGame machine code from a given file into the em
 $ ngc-emu memset.bin
 ```
 
-If the file path given is `-`, machine code instructions will be read from `stdin`.
-
-```
-$ ngc-asm memset.asm | ngc-emu -
-```
-
 NandGame machine code is expected to use the system's endianness.
 
 Once the emulated program counter reaches the end of ROM, the emulator will exit.
@@ -119,9 +112,9 @@ $ ngc-emu [-pvV] [-c <hz>] [<path>]
 
 | Option    | Description |
 | ---       | ---         |
-| `<path>`  | Path to ROM file. File will be read from `stdin` by default if not specified or `-` is given as the path. |
-| -p        | Start emulation with the clock paused. Clock starts running by default if not specified. |
-| -c `<hz>` | Start emulation at the given clock speed. Must be a power of 10 no larger than 10000. Clock defaults to 10Hz if not specified. |
+| `<path>`  | Path to ROM file. File will be read from `stdin` if a path is not specified or path is `-`. |
+| -p        | Start emulation with the clock paused. Clock starts running if option is not specified. |
+| -c `<hz>` | Start emulation at the given clock speed. Must be a power of 10 no larger than 10000. Clock starts at 10Hz if option is not specified. |
 | -v, -V    | Print version and exit. |
 
 ### Keyboard controls
