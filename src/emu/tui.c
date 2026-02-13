@@ -35,7 +35,6 @@
 
 #define CLOCK_HZ_MIN 1
 #define CLOCK_HZ_MAX 10000
-#define CLOCK_HZ_DEFAULT 10
 #define CLOCK_HZ_MULTI 10
 
 #define WIN_GROUP_1_X 0
@@ -386,6 +385,28 @@ static bool ngc_data_copy_fp(struct ngc_data* data, FILE* fp)
 	return true;
 }
 
+static unsigned short parse_clock_hz_opt(char* optarg)
+{
+	if (!optarg || optarg[0] != '1')
+		return 0;
+
+	unsigned short result = 1;
+
+	// Parse argument and validate it's a power of 10 in a single loop
+	size_t optarg_len = strlen(optarg);
+	for (size_t ind = 1; ind < optarg_len; ind++) {
+		if (optarg[ind] != '0')
+			return 0;
+
+		result *= 10;
+	}
+
+	if (result < CLOCK_HZ_MIN || result > CLOCK_HZ_MAX)
+		return 0;
+
+	return result;
+}
+
 static void exit_sig(int signal)
 {
 	term_free(&term);
@@ -398,12 +419,48 @@ int main(int argc, char* argv[])
 	bool term_set = false;
 	bool windows_set = false;
 
-	if (argc < 2) {
-		print_err("No ROM file given");
-		goto exit;
-	} else if (argc > 2) {
-		print_err("Too many arguments given");
-		goto exit;
+	int opt;
+	extern char* optarg;
+	extern int optind, optopt;
+
+	char* rom_path = NULL;
+	struct ngc_clock clock = { .enabled = true, .hz = 10 };
+
+	// Set vars from opts
+	while ((opt = getopt(argc, argv, ":pc:vV")) != -1) {
+		switch (opt) {
+			case 'p':
+				clock.enabled = false;
+				break;
+			case 'c':
+				;
+				clock.hz = parse_clock_hz_opt(optarg);
+				if (clock.hz == 0) {
+					print_err("Invalid clock Hz: %s", optarg);
+					goto exit;
+				}
+				break;
+			case 'v':
+			case 'V':
+				printf("ngc-emu v0.2.0%s", EOL);
+				return 0;
+			case ':':
+				print_err("Option -%c requires an argument", optopt);
+				goto exit;
+			case '?':
+				print_err("Unknown option: -%c", optopt);
+				goto exit;
+		}
+	}
+
+	// Set input file path from arg
+	for (; optind < argc; optind++) {
+		if (rom_path) {
+			print_err("Multiple ROM files given");
+			goto exit;
+		}
+
+		rom_path = argv[optind];
 	}
 
 	// Init NGC memory
@@ -414,10 +471,10 @@ int main(int argc, char* argv[])
 	}
 
 	// Open ROM file
-	bool rom_stdin = strncmp(argv[1], PATH_STDIN, strlen(PATH_STDIN)) == 0;
-	FILE* rom_fp = rom_stdin ? stdin : fopen(argv[1], "rb");
+	bool rom_stdin = !rom_path || strncmp(rom_path, PATH_STDIN, strlen(PATH_STDIN) + 1) == 0;
+	FILE* rom_fp = rom_stdin ? stdin : fopen(rom_path, "rb");
 	if (!rom_fp) {
-		print_err("Failed to open ROM file: '%s'", rom_stdin ? "stdin" : argv[1]);
+		print_err("Failed to open ROM file: '%s'", rom_stdin ? "stdin" : rom_path);
 		goto exit;
 	}
 
@@ -448,10 +505,7 @@ int main(int argc, char* argv[])
 	windows_init(&windows, scr_rows, scr_cols);
 	windows_set = true;
 
-	// Init NGC clock
-	struct ngc_clock clock = { .enabled = true, .hz = CLOCK_HZ_DEFAULT };
 	long long last_tick_epoch_us = 0, last_scrdraw_epoch_us = 0;
-
 	struct ngc_tick_result tick_result;
 
 	// Tick NGC clock until end of ROM reached

@@ -27,7 +27,7 @@ NandGame machine code is output using the system's endianness.
 ### CLI usage
 
 ```
-$ ngc-asm [-vh] [-o <path>] <path>
+$ ngc-asm [-vVh] [-o <path>] <path>
 ```
 
 | Option      | Description |
@@ -111,6 +111,19 @@ NandGame machine code is expected to use the system's endianness.
 
 Once the emulated program counter reaches the end of ROM, the emulator will exit.
 
+### CLI usage
+
+```
+$ ngc-emu [-pvV] [-c <hz>] [<path>]
+```
+
+| Option    | Description |
+| ---       | ---         |
+| `<path>`  | Path to ROM file. File will be read from `stdin` by default if not specified or `-` is given as the path. |
+| -p        | Start emulation with the clock paused. Clock starts running by default if not specified. |
+| -c `<hz>` | Start emulation at the given clock speed. Must be a power of 10 no larger than 10000. Clock defaults to 10Hz if not specified. |
+| -v, -V    | Print version and exit. |
+
 ### Keyboard controls
 
 | Key        | Action |
@@ -128,7 +141,6 @@ Listed below are emulator features that are being considered, but not guarenteed
 
 - Additional CLI options.
     - Set the expected endianness of the read machine code.
-    - Start the emulator paused or at a given clock speed.
     - Halt the emulator when end of ROM is reached, rather than exit.
 - Additional TUI functionality.
     - Edit memory.
