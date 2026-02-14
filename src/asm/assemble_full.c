@@ -9,11 +9,21 @@
 
 /**
  * Expanded parsed assembly line.
+ * Same struct as parsed_line, but redefined due to indexes referring to different lists.
  */
 struct expanded_line {
 	enum parsed_line_type type;
 	size_t line_num;
 	size_t val; // Parsed instruction if type is LINE_INST_E, index of expanded_base.refs_data if type is LINE_REF_DATA_E, index of expanded_base.macros if type is LINE_REF_MACRO_E.
+};
+
+/**
+ * Expanded parsed macro parameter.
+ */
+struct expanded_macro_param {
+	char key[PARSED_KEY_CHARS];
+	enum parsed_ref_macro_param_type type;
+	size_t val; // Parsed value if type is PARAM_CONST_E, index of expanded_base.parent->refs_data if type is PARAM_REF_DATA_E
 };
 
 /**
@@ -25,6 +35,7 @@ struct expanded_base {
 	size_t inst_len;
 	struct llist macros; // llist of expanded_base
 	struct llist lines; // llist of expanded_line
+	struct llist params; // llist of expanded_macro_param
 	struct llist refs_data; // llist of char[PARSED_KEY_CHARS]
 	struct llist defs_data; // llist of parsed_def_data
 };
@@ -44,8 +55,9 @@ static void expanded_base_empty(struct expanded_base* base)
 	base->parent = NULL;
 	llist_delegate_empty(&base->macros, (void (*)(void *))expanded_base_free);
 	llist_empty(&base->lines);
-    llist_empty(&base->refs_data);
-    llist_empty(&base->defs_data);
+	llist_empty(&base->params);
+	llist_empty(&base->refs_data);
+	llist_empty(&base->defs_data);
 }
 
 void expanded_base_free(struct expanded_base* base)
@@ -54,16 +66,6 @@ void expanded_base_free(struct expanded_base* base)
 
     expanded_base_empty(base);
     free(base);
-}
-
-static bool list_copy(struct error* err, struct llist* dst, const struct llist src)
-{
-	if (llist_copy(dst, src) < src.len) {
-		error_init(err, ERRVAL_FAILURE, "Failed to copy list");
-		return false;
-	}
-
-	return true;
 }
 
 /**
@@ -100,8 +102,11 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 {
 	assert(expanded);
 
-	if (!list_copy(err, &expanded->refs_data, parsed.refs_data))
+	// Copy data references as-is
+	if (llist_copy(&expanded->refs_data, parsed.refs_data) < parsed.refs_data.len) {
+		error_init(err, ERRVAL_FAILURE, "Failed to copy data references to list");
 		return (expanded->line_num > 0) ? expanded->line_num : 1;
+	}
 
 	// Iterate through lines
 	struct llist_node* line_node = parsed.lines.head;
@@ -123,7 +128,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 				// Get macro referenced by line
 				struct parsed_ref_macro* ref_macro = llist_get(parsed.refs_macros, line->val);
 				if (!ref_macro) {
-					error_init(err, ERRVAL_FAILURE, "Macro reference not in list: %zu", line->val);
+					error_init(err, ERRVAL_FAILURE, "Macro reference index not in list: %zu", line->val);
 					return line->line_num;
 				}
 
@@ -134,12 +139,43 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 					return line->line_num;
 				}
 
-				if (def_macro->params.len > 0 || ref_macro->params.len > 0) {
-					// TODO: Support macro parameters
+				// Build initial expanded macro
+				struct expanded_base macro_expanded_init = { .parent = expanded, .line_num = line->line_num };
+
+				// Expand macro parameters
+				if (ref_macro->params.len > 0 || def_macro->params.len > 0) {
+					// Validate correct number of parameters are provided
+					if (ref_macro->params.len < def_macro->params.len) {
+						error_init(err, ERRVAL_SYNTAX, "Macro reference has %ld too few parameters", def_macro->params.len - ref_macro->params.len);
+						return line->line_num;
+					} else if (ref_macro->params.len > def_macro->params.len) {
+						error_init(err, ERRVAL_SYNTAX, "Macro reference has %ld too many parameters", ref_macro->params.len - def_macro->params.len);
+						return line->line_num;
+					}
+
+					// Iterate through macro parameter definitions and references
+					struct llist_node* param_ref_node = ref_macro->params.head;
+					struct llist_node* param_def_node = def_macro->params.head;
+					for (size_t param_ind = 0; param_ref_node && param_def_node && param_ind < ref_macro->params.len && param_ind < def_macro->params.len; param_ref_node = param_ref_node->next, param_def_node = param_def_node->next, param_ind++) {
+						struct parsed_ref_macro_param* param_ref = param_ref_node->val;
+						char* param_def = param_def_node->val;
+
+						// Assemble expanded macro parameter
+						struct expanded_macro_param param = { .type = param_ref->type, .val = param_ref->val };
+						if (!str_copy(param.key, param_def, STR_CHARS(strlen(param_def)))) {
+							error_init(err, ERRVAL_FAILURE, "Failed to copy string");
+							return line->line_num;
+						}
+
+						// Push expanded macro parameter
+						if (!llist_push(&macro_expanded_init.params, &param, sizeof(param))) {
+							error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro parameter to list");
+							return line->line_num;
+						}
+					}
 				}
 
-				// Build initial expanded macro and push to list
-				struct expanded_base macro_expanded_init = { .parent = expanded, .line_num = line->line_num };
+				// Push initial expended macro to list
 				struct expanded_base* macro_expanded = llist_push(&expanded->macros, &macro_expanded_init, sizeof(macro_expanded_init));
 				if (!macro_expanded) {
 					error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro to list");
@@ -231,6 +267,86 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 }
 
 /**
+ * Get expanded macro parameter from list using key.
+ *
+ * @param defs_macros Linked list of expanded macro parameters.
+ * @param key Key of macro parameter to get.
+ * @returns Pointer to expanded macro parameter. NULL if not found.
+ */
+struct expanded_macro_param* expanded_macro_param_get(const struct llist params, const char* key)
+{
+	if (!key)
+        return NULL;
+
+    struct llist_node* param_node = params.head;
+	for (size_t param_ind = 0; param_node && param_ind < params.len; param_node = param_node->next, param_ind++) {
+		struct expanded_macro_param* param = param_node->val;
+		if (PARSED_KEYS_EQ(param->key, key))
+			return param;
+	}
+
+	return NULL;
+}
+
+/**
+ * Assemble expanded/unwound data reference.
+ *
+ * @param err Struct to store error.
+ * @param expanded Expanded/unwound assembly.
+ * @param key Key of data reference to get.
+ * @returns NGC data instruction. -1 if error.
+ */
+static long long assemble_ref_data(struct error* err, const struct expanded_base expanded, const char* key)
+{
+	struct parsed_def_data* def_data;
+
+	// Try find macro parameter with matching key
+	if (expanded.parent && expanded.params.len > 0) {
+		struct expanded_macro_param* macro_param = expanded_macro_param_get(expanded.params, key);
+		if (macro_param) {
+			switch (macro_param->type) {
+				case PARAM_CONST_E:
+					return (long long)macro_param->val;
+
+				case PARAM_REF_DATA_E:
+					;
+					// Get data key passed as macro parameter
+					char* parent_key = llist_get(expanded.parent->refs_data, macro_param->val);
+					if (!parent_key) {
+						error_init(err, ERRVAL_FAILURE, "Data reference not in list: %zu", macro_param->val);
+						return -1;
+					}
+
+					// Assemble data reference passed as macro parameter
+					return assemble_ref_data(err, *expanded.parent, parent_key);
+
+				default:
+					error_init(err, ERRVAL_FAILURE, "Unknown expanded macro parameter type: %d", macro_param->type);
+					return -1;
+			}
+		}
+	}
+
+	// Key does not refer to any macro parameter - try find data definition within current scope with matching key
+	def_data = parsed_def_data_get(expanded.defs_data, key);
+	if (def_data)
+		return (long long)def_data->val;
+
+	// Key does not refer to any data definition in current scope - try find data definition within root (file) scope with matching key
+	if (expanded.parent) {
+		struct expanded_base* root;
+		for (root = expanded.parent; root->parent; root = root->parent);
+
+		def_data = parsed_def_data_get(root->defs_data, key);
+		if (def_data)
+			return (long long)def_data->val;
+	}
+
+	error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", key);
+	return -1;
+}
+
+/**
  * Push NGC instruction.
  *
  * @param err Struct to store error.
@@ -278,24 +394,13 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 					return line->line_num;
 				}
 
-				// Try find data definition within current scope using referenced data key
-				struct parsed_def_data* def_data = parsed_def_data_get(expanded.defs_data, data_key);
-
-				// Data definition not within current scope - try find data definition within root (file) scope using referenced data key
-				if (!def_data && expanded.parent) {
-					struct expanded_base* root = expanded.parent;
-					for (; root->parent; root = root->parent);
-					def_data = parsed_def_data_get(root->defs_data, data_key);
-				}
-
-				// Data definition not within any scope
-				if (!def_data) {
-					error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", data_key);
+				// Assemble data value
+				long long data_val = assemble_ref_data(err, expanded, data_key);
+				if (data_val < 0)
 					return line->line_num;
-				}
 
-				// Push data value as NGC data instruction
-				if (!inst_push(err, instructions, (ngc_word_t)def_data->val))
+				// Push data value
+				if (!inst_push(err, instructions, (ngc_word_t)data_val))
 					return line->line_num;
 
 				break;
