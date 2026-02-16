@@ -273,8 +273,16 @@ static bool parse_def_data_define(struct error* err, struct llist* defs_data, co
 
 			// Key
 			case 1:
+				// Validate key
 				if (!parse_key(err, result.key, tok, "DEFINE statement"))
 					return false;
+
+				// Validate no data definition with same key already exists
+				struct parsed_def_data* conflict = parsed_def_data_get(*defs_data, result.key);
+				if (conflict) {
+					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in DEFINE statement, first used on line %ld: '%s'", conflict->line_num, tok);
+					return false;
+				}
 
 				break;
 
@@ -343,8 +351,16 @@ static bool parse_def_data_label(struct error* err, struct llist* defs_data, con
 
 			// Key
 			case 1:
+				// Validate key
 				if (!parse_key(err, result.key, tok, "LABEL statement"))
 					return false;
+
+				// Validate no data definition with same key already exists
+				struct parsed_def_data* conflict = parsed_def_data_get(*defs_data, result.key);
+				if (conflict) {
+					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in LABEL statement, first used on line %ld: '%s'", conflict->line_num, tok);
+					return false;
+				}
 
 				break;
 
@@ -397,8 +413,16 @@ static bool parse_def_macro(struct error* err, struct llist* defs_macros, const 
 
 			// Key
 			case 1:
+				// Validate key
 				if (!parse_key(err, result.key, tok, "%MACRO statement"))
 					goto error;
+
+				// Validate no macro definition with same key already exists
+				struct parsed_def_macro* conflict = parsed_def_macro_get(*defs_macros, result.key);
+				if (conflict) {
+					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in %%MACRO statement, first used on line %ld: '%s'", conflict->line_num, tok);
+					goto error;
+				}
 
 				break;
 
@@ -413,9 +437,9 @@ static bool parse_def_macro(struct error* err, struct llist* defs_macros, const 
 				if (!parse_key(err, param_key, tok, "%MACRO statement"))
 					goto error;
 
-				// Validate parameter key is not duplicate
+				// Validate parameter key does not already exist
 				if (keys_get(param_key, result.params) >= 0) {
-					error_init(err, ERRVAL_SYNTAX, "Duplicate parameters given in %%MACRO statement: '%s'", tok);
+					error_init(err, ERRVAL_SYNTAX, "Conflicting parameter keys given in %%MACRO statement: '%s'", tok);
 					goto error;
 				}
 
