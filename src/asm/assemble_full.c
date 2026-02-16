@@ -215,9 +215,10 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 		// Add number of instructions in macros referenced beforehand to program counter offset
 		if (macro_node) {
 			struct expanded_base* macro = macro_node->val;
-			if (data->line_num >= macro->line_num) {
+			while (macro_node && data->line_num >= macro->line_num) {
 				pc_offset += macro->inst_len;
 				macro_node = macro_node->next;
+				macro = macro_node->val;
 			}
 		}
 
