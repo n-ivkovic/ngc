@@ -1,0 +1,9 @@
+%MACRO conflicting
+D&A
+%END
+
+conflicting
+
+%MACRO conflicting
+-1
+%END

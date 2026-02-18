@@ -1,0 +1,3 @@
+DEFINE conflicting 0
+A = conflicting
+DEFINE conflicting 1
