@@ -35,7 +35,7 @@ static void print_file_err(const char* f_path, const char* msg)
 static void print_err_err(const char* f_path, const size_t f_line, const struct error err)
 {
 	if (err.val == ERRVAL_SYNTAX)
-		print_err("%s:%lu: %s", f_path, f_line, err.msg);
+		print_err("%s:%zu: %s", f_path, f_line, err.msg);
 	else
 		print_file_err(f_path, err.msg);
 }

@@ -146,10 +146,10 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 				if (ref_macro->params.len > 0 || def_macro->params.len > 0) {
 					// Validate correct number of parameters are provided
 					if (ref_macro->params.len < def_macro->params.len) {
-						error_init(err, ERRVAL_SYNTAX, "Macro reference has %ld too few parameters", def_macro->params.len - ref_macro->params.len);
+						error_init(err, ERRVAL_SYNTAX, "Macro reference has %zu too few parameters", def_macro->params.len - ref_macro->params.len);
 						return line->line_num;
 					} else if (ref_macro->params.len > def_macro->params.len) {
-						error_init(err, ERRVAL_SYNTAX, "Macro reference has %ld too many parameters", ref_macro->params.len - def_macro->params.len);
+						error_init(err, ERRVAL_SYNTAX, "Macro reference has %zu too many parameters", ref_macro->params.len - def_macro->params.len);
 						return line->line_num;
 					}
 
@@ -428,7 +428,7 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 		}
 
 		if (instructions->len > NGC_UWORD_MAX) {
-			error_init(err, ERRVAL_FILE, "File contains too many instructions (max %ld)", NGC_UWORD_MAX);
+			error_init(err, ERRVAL_FILE, "File contains too many instructions (max %zu)", NGC_UWORD_MAX);
 			return line->line_num;
 		}
 	}

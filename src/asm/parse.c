@@ -280,7 +280,7 @@ static bool parse_def_data_define(struct error* err, struct llist* defs_data, co
 				// Validate no data definition with same key already exists
 				struct parsed_def_data* conflict = parsed_def_data_get(*defs_data, result.key);
 				if (conflict) {
-					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in DEFINE statement, first used on line %ld: '%s'", conflict->line_num, tok);
+					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in DEFINE statement, first used on line %zu: '%s'", conflict->line_num, tok);
 					return false;
 				}
 
@@ -358,7 +358,7 @@ static bool parse_def_data_label(struct error* err, struct llist* defs_data, con
 				// Validate no data definition with same key already exists
 				struct parsed_def_data* conflict = parsed_def_data_get(*defs_data, result.key);
 				if (conflict) {
-					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in LABEL statement, first used on line %ld: '%s'", conflict->line_num, tok);
+					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in LABEL statement, first used on line %zu: '%s'", conflict->line_num, tok);
 					return false;
 				}
 
@@ -420,7 +420,7 @@ static bool parse_def_macro(struct error* err, struct llist* defs_macros, const 
 				// Validate no macro definition with same key already exists
 				struct parsed_def_macro* conflict = parsed_def_macro_get(*defs_macros, result.key);
 				if (conflict) {
-					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in %%MACRO statement, first used on line %ld: '%s'", conflict->line_num, tok);
+					error_init(err, ERRVAL_SYNTAX, "Conflicting key given in %%MACRO statement, first used on line %zu: '%s'", conflict->line_num, tok);
 					goto error;
 				}
 
@@ -1102,7 +1102,7 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 
 		// Check if too many lines in file
 		if (line_num > FILE_LINES_MAX) {
-			error_init(err, ERRVAL_FILE, "File contains too many lines (max %ld)", FILE_LINES_MAX);
+			error_init(err, ERRVAL_FILE, "File contains too many lines (max %zu)", FILE_LINES_MAX);
 			return line_num;
 		}
 
@@ -1110,7 +1110,7 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 
 		// Check if too many chars in line
 		if (f_line_len > FILE_COLS_MAX) {
-			error_init(err, ERRVAL_FILE, "File contains too many columns (max %ld)", FILE_COLS_MAX);
+			error_init(err, ERRVAL_FILE, "File contains too many columns (max %zu)", FILE_COLS_MAX);
 			return line_num;
 		}
 

@@ -74,7 +74,7 @@ size_t assemble_file_basic(struct error* err, struct llist* instructions, const 
 		}
 
 		if (instructions->len > NGC_UWORD_MAX) {
-			error_init(err, ERRVAL_FILE, "File contains too many instructions (max %ld)", NGC_UWORD_MAX);
+			error_init(err, ERRVAL_FILE, "File contains too many instructions (max %zu)", NGC_UWORD_MAX);
 			return line->line_num;
 		}
 	}
