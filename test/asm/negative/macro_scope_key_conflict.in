@@ -1,0 +1,10 @@
+%MACRO macro
+DEFINE conflicting 0x00D1
+A = conflicting
+%END
+
+DEFINE conflicting 0x00D0
+
+macro
+
+A = conflicting
