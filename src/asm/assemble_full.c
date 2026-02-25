@@ -68,6 +68,29 @@ void expanded_base_free(struct expanded_base* base)
     free(base);
 }
 
+
+/**
+ * Get expanded macro parameter from list using key.
+ *
+ * @param defs_macros Linked list of expanded macro parameters.
+ * @param key Key of macro parameter to get.
+ * @returns Pointer to expanded macro parameter. NULL if not found.
+ */
+static struct expanded_macro_param* expanded_macro_param_get(const struct llist params, const char* key)
+{
+	if (!key)
+        return NULL;
+
+    struct llist_node* param_node = params.head;
+	for (size_t param_ind = 0; param_node && param_ind < params.len; param_node = param_node->next, param_ind++) {
+		struct expanded_macro_param* param = param_node->val;
+		if (PARSED_KEYS_EQ(param->key, key))
+			return param;
+	}
+
+	return NULL;
+}
+
 /**
  * Push expanded line.
  *
@@ -212,6 +235,12 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 	for (size_t data_ind = 0; data_node && data_ind < parsed.defs_data.len; data_node = data_node->next, data_ind++) {
 		struct parsed_def_data* data = data_node->val;
 
+		// Validate no macro parameter with same key already exists
+		if (expanded->params.len > 0 && expanded_macro_param_get(expanded->params, data->key)) {
+			error_init(err, ERRVAL_SYNTAX, "Conflicting key given in DEFINE or LABEL statement, first used in macro parameter: '%s'", data->key);
+			return data->line_num;
+		}
+
 		// Add number of instructions in macros referenced beforehand to program counter offset
 		if (macro_node) {
 			struct expanded_base* macro = macro_node->val;
@@ -268,38 +297,19 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 }
 
 /**
- * Get expanded macro parameter from list using key.
- *
- * @param defs_macros Linked list of expanded macro parameters.
- * @param key Key of macro parameter to get.
- * @returns Pointer to expanded macro parameter. NULL if not found.
- */
-struct expanded_macro_param* expanded_macro_param_get(const struct llist params, const char* key)
-{
-	if (!key)
-        return NULL;
-
-    struct llist_node* param_node = params.head;
-	for (size_t param_ind = 0; param_node && param_ind < params.len; param_node = param_node->next, param_ind++) {
-		struct expanded_macro_param* param = param_node->val;
-		if (PARSED_KEYS_EQ(param->key, key))
-			return param;
-	}
-
-	return NULL;
-}
-
-/**
  * Assemble expanded/unwound data reference.
  *
  * @param err Struct to store error.
  * @param expanded Expanded/unwound assembly.
+ * @param root Expanded/unwound root/file assembly. Should be NULL if `expanded` is the root/file.
  * @param key Key of data reference to get.
  * @returns NGC data instruction. -1 if error.
  */
-static long long assemble_ref_data(struct error* err, const struct expanded_base expanded, const char* key)
+static long long assemble_ref_data(struct error* err, const struct expanded_base expanded, const struct expanded_base* root, const char* key)
 {
-	struct parsed_def_data* def_data;
+	assert(key);
+	if (root)
+		assert(!root->parent);
 
 	// Try find macro parameter with matching key
 	if (expanded.parent && expanded.params.len > 0) {
@@ -319,7 +329,7 @@ static long long assemble_ref_data(struct error* err, const struct expanded_base
 					}
 
 					// Assemble data reference passed as macro parameter
-					return assemble_ref_data(err, *expanded.parent, parent_key);
+					return assemble_ref_data(err, *expanded.parent, expanded.parent->parent ? root : NULL, parent_key);
 
 				default:
 					error_init(err, ERRVAL_FAILURE, "Unknown expanded macro parameter type: %d", macro_param->type);
@@ -328,19 +338,30 @@ static long long assemble_ref_data(struct error* err, const struct expanded_base
 		}
 	}
 
-	// Key does not refer to any macro parameter - try find data definition within current scope with matching key
-	def_data = parsed_def_data_get(expanded.defs_data, key);
-	if (def_data)
-		return (long long)def_data->val;
+	// Key does not refer to any macro parameter - get data definition within current scope with matching key
+	struct parsed_def_data* data = parsed_def_data_get(expanded.defs_data, key);
 
-	// Key does not refer to any data definition in current scope - try find data definition within root (file) scope with matching key
-	if (expanded.parent) {
-		struct expanded_base* root;
-		for (root = expanded.parent; root->parent; root = root->parent);
+	// No other scope to check (currently within root/file scope) - return data found within current scope
+	if (data && !root)
+		return (long long)data->val;
 
-		def_data = parsed_def_data_get(root->defs_data, key);
-		if (def_data)
-			return (long long)def_data->val;
+	if (root) {
+		// Get data definition within root/file scope with matching key
+		struct parsed_def_data* data_root = parsed_def_data_get(root->defs_data, key);
+
+		// No data found in root/file scope - return data found within current scope
+		if (data && !data_root)
+			return (long long)data->val;
+
+		// No data found within current scope - return data found within root/file scope
+		if (data_root && !data)
+			return (long long)data_root->val;
+
+		// Conflicting data found in current and root/file scopes
+		if (data && data_root) {
+			error_init(err, ERRVAL_SYNTAX, "Conflicting key given in DEFINE or LABEL statement, first used on line %zu: '%s'", data_root->line_num, data_root->key);
+			return -1;
+		}
 	}
 
 	error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", key);
@@ -375,6 +396,12 @@ static bool inst_push(struct error* err, struct llist* instructions, const ngc_w
  */
 static size_t assemble_expanded(struct error* err, struct llist* instructions, const struct expanded_base expanded)
 {
+	// Find root/file scope
+	struct expanded_base* root = NULL;
+	if (expanded.parent)
+		for (root = expanded.parent; root->parent; root = root->parent);
+
+	// Iterate through lines
 	struct llist_node* line_node = expanded.lines.head;
 	for (size_t lines_ind = 0; line_node && lines_ind < expanded.lines.len; line_node = line_node->next, lines_ind++) {
 		struct parsed_line* line = line_node->val;
@@ -396,7 +423,7 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 				}
 
 				// Assemble data value
-				long long data_val = assemble_ref_data(err, expanded, data_key);
+				long long data_val = assemble_ref_data(err, expanded, root, data_key);
 				if (data_val < 0)
 					return line->line_num;
 

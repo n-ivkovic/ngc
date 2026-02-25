@@ -76,7 +76,7 @@ The table below lists differences in language features between usage within regu
 | `LABEL` statements    | Value can be referenced anywhere in the file | Value can be referenced only within the macro definition |
 | `%MACRO` definitions  | Allowed                                      | Forbidden                                                |
 
-Like `DEFINE` and `LABEL` statements, a macro can be called both before and after its definition.
+Like `DEFINE` and `LABEL` statements, a macro can be referenced both before and after its definition.
 
 ### Wishlist
 
@@ -157,13 +157,13 @@ $ make
 
 Run without installing:
 ```
-$ ./ngc-asm code.asm | ./ngc-emu -
+$ ./ngc-asm code.asm | ./ngc-emu
 ```
 
 Install and run:
 ```
 # make install
-$ ngc-asm code.asm | ngc-emu -
+$ ngc-asm code.asm | ngc-emu
 ```
 
 Update after installing:
