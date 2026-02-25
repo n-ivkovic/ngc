@@ -300,16 +300,23 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
  * Assemble expanded/unwound data reference.
  *
  * @param err Struct to store error.
+ * @param data_val Int to store NGC data instruction.
  * @param expanded Expanded/unwound assembly.
  * @param root Expanded/unwound root/file assembly. Should be NULL if `expanded` is the root/file.
+ * @param line_num Number of line in file.
  * @param key Key of data reference to get.
- * @returns NGC data instruction. -1 if error.
+ * @returns 0 if successfully assembled. >0 line number if error.
  */
-static long long assemble_ref_data(struct error* err, const struct expanded_base expanded, const struct expanded_base* root, const char* key)
+static size_t assemble_ref_data(struct error* err, size_t* data_val, const struct expanded_base expanded, const struct expanded_base* root, const size_t line_num, const char* key)
 {
 	assert(key);
-	if (root)
+
+	if (root) {
 		assert(!root->parent);
+		assert(expanded.parent);
+	} else {
+		assert(!expanded.parent);
+	}
 
 	// Try find macro parameter with matching key
 	if (expanded.parent && expanded.params.len > 0) {
@@ -317,7 +324,8 @@ static long long assemble_ref_data(struct error* err, const struct expanded_base
 		if (macro_param) {
 			switch (macro_param->type) {
 				case PARAM_CONST_E:
-					return (long long)macro_param->val;
+					*data_val = macro_param->val;
+					return 0;
 
 				case PARAM_REF_DATA_E:
 					;
@@ -325,15 +333,15 @@ static long long assemble_ref_data(struct error* err, const struct expanded_base
 					char* parent_key = llist_get(expanded.parent->refs_data, macro_param->val);
 					if (!parent_key) {
 						error_init(err, ERRVAL_FAILURE, "Data reference not in list: %zu", macro_param->val);
-						return -1;
+						return line_num;
 					}
 
 					// Assemble data reference passed as macro parameter
-					return assemble_ref_data(err, *expanded.parent, expanded.parent->parent ? root : NULL, parent_key);
+					return assemble_ref_data(err, data_val, *expanded.parent, expanded.parent->parent ? root : NULL, line_num, parent_key);
 
 				default:
 					error_init(err, ERRVAL_FAILURE, "Unknown expanded macro parameter type: %d", macro_param->type);
-					return -1;
+					return line_num;
 			}
 		}
 	}
@@ -342,30 +350,36 @@ static long long assemble_ref_data(struct error* err, const struct expanded_base
 	struct parsed_def_data* data = parsed_def_data_get(expanded.defs_data, key);
 
 	// No other scope to check (currently within root/file scope) - return data found within current scope
-	if (data && !root)
-		return (long long)data->val;
+	if (data && !root) {
+		*data_val = data->val;
+		return 0;
+	}
 
 	if (root) {
 		// Get data definition within root/file scope with matching key
 		struct parsed_def_data* data_root = parsed_def_data_get(root->defs_data, key);
 
 		// No data found in root/file scope - return data found within current scope
-		if (data && !data_root)
-			return (long long)data->val;
+		if (data && !data_root) {
+			*data_val = data->val;
+			return 0;
+		}
 
 		// No data found within current scope - return data found within root/file scope
-		if (data_root && !data)
-			return (long long)data_root->val;
+		if (data_root && !data) {
+			*data_val = data_root->val;
+			return 0;
+		}
 
 		// Conflicting data found in current and root/file scopes
 		if (data && data_root) {
 			error_init(err, ERRVAL_SYNTAX, "Conflicting key given in DEFINE or LABEL statement, first used on line %zu: '%s'", data_root->line_num, data_root->key);
-			return -1;
+			return data->line_num;
 		}
 	}
 
 	error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", key);
-	return -1;
+	return line_num;
 }
 
 /**
@@ -423,9 +437,10 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 				}
 
 				// Assemble data value
-				long long data_val = assemble_ref_data(err, expanded, root, data_key);
-				if (data_val < 0)
-					return line->line_num;
+				size_t data_val;
+				size_t data_result = assemble_ref_data(err, &data_val, expanded, root, line->line_num, data_key);
+				if (data_result > 0)
+					return data_result;
 
 				// Push data value
 				if (!inst_push(err, instructions, (ngc_word_t)data_val))
@@ -443,9 +458,9 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 				}
 
 				// Recursively assemble macro
-				size_t macro_assemble_result = assemble_expanded(err, instructions, *macro);
-				if (macro_assemble_result > 0)
-					return macro_assemble_result;
+				size_t macro_result = assemble_expanded(err, instructions, *macro);
+				if (macro_result > 0)
+					return macro_result;
 
 				break;
 
