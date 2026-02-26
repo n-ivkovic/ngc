@@ -33,57 +33,79 @@ struct expanded_base {
 	struct expanded_base* parent;
 	size_t line_num;
 	size_t inst_len;
-	struct llist macros; // llist of expanded_base
-	struct llist lines; // llist of expanded_line
-	struct llist params; // llist of expanded_macro_param
-	struct llist refs_data; // llist of char[PARSED_KEY_CHARS]
-	struct llist defs_data; // llist of parsed_def_data
+	struct dynarr lines; // Dynamic array of expanded_line
+	struct dynarr macros; // Dynamic array of expanded_base
+	struct dynarr params; // Dynamic array of expanded_macro_param
+	struct dynarr refs_data; // Dynamic array of char[PARSED_KEY_CHARS]
+	struct dynarr defs_data; // Dynamic array of parsed_def_data
 };
-
-/**
- * Free expanded assembly.
- */
-void expanded_base_free(struct expanded_base* base);
 
 /**
  * Free values within expanded assembly.
  */
 static void expanded_base_empty(struct expanded_base* base)
 {
-    if (!base) return;
+	if (!base)
+		return;
 
 	base->parent = NULL;
-	llist_delegate_empty(&base->macros, (void (*)(void *))expanded_base_free);
-	llist_empty(&base->lines);
-	llist_empty(&base->params);
-	llist_empty(&base->refs_data);
-	llist_empty(&base->defs_data);
+	dynarr_empty(&base->lines);
+	dynarr_delegate_empty(&base->macros, (void (*)(void *))expanded_base_empty);
+	dynarr_empty(&base->params);
+	dynarr_empty(&base->refs_data);
+	dynarr_empty(&base->defs_data);
 }
-
-void expanded_base_free(struct expanded_base* base)
-{
-    if (!base) return;
-
-    expanded_base_empty(base);
-    free(base);
-}
-
 
 /**
- * Get expanded macro parameter from list using key.
+ * Allocate initial space for expanded assembly.
  *
- * @param defs_macros Linked list of expanded macro parameters.
+ * @param base Expanded assembly to allocate space for.
+ * @param parsed Parsed assembly to determine initial space to allocate.
+ */
+static struct expanded_base* expanded_base_alloc(struct expanded_base* base, const struct parsed_base parsed)
+{
+	if (!base)
+		return NULL;
+
+	if (!dynarr_alloc(&base->lines, parsed.lines.capacity, sizeof(struct expanded_line)))
+		goto error;
+
+	if (!dynarr_alloc(&base->macros, parsed.refs_macros.capacity, sizeof(struct expanded_base)))
+		goto error;
+
+	if (!dynarr_alloc(&base->params, 1, sizeof(struct expanded_macro_param)))
+		goto error;
+
+	if (!dynarr_alloc(&base->refs_data, parsed.refs_data.capacity, sizeof(char[PARSED_KEY_CHARS])))
+		goto error;
+
+	if (!dynarr_alloc(&base->defs_data, parsed.defs_data.capacity, sizeof(struct parsed_def_data)))
+		goto error;
+
+	return base;
+
+	error:
+	expanded_base_empty(base);
+	return NULL;
+}
+
+/**
+ * Get expanded macro parameter from dynamic array using key.
+ *
+ * @param defs_macros Dynamic array of expanded macro parameters.
  * @param key Key of macro parameter to get.
  * @returns Pointer to expanded macro parameter. NULL if not found.
  */
-static struct expanded_macro_param* expanded_macro_param_get(const struct llist params, const char* key)
+static struct expanded_macro_param* expanded_macro_param_get(const struct dynarr params, const char* key)
 {
 	if (!key)
-        return NULL;
+		return NULL;
 
-    struct llist_node* param_node = params.head;
-	for (size_t param_ind = 0; param_node && param_ind < params.len; param_node = param_node->next, param_ind++) {
-		struct expanded_macro_param* param = param_node->val;
+	for (size_t param_ind = 0; param_ind < params.len; param_ind++) {
+		struct expanded_macro_param* param = dynarr_get(params, param_ind);
+		if (!param)
+			continue;
+
 		if (PARSED_KEYS_EQ(param->key, key))
 			return param;
 	}
@@ -95,17 +117,17 @@ static struct expanded_macro_param* expanded_macro_param_get(const struct llist 
  * Push expanded line.
  *
  * @param err Struct to store error.
- * @param lines Linked list to store expanded result.
+ * @param lines Dynamic array to store expanded result.
  * @param type Type of expanded line.
  * @param line_num Number of line in file.
  * @param val Expanded line value.
  * @returns Whether expanded line was pushed successfully.
  */
-static bool lines_push(struct error* err, struct llist* lines, const enum parsed_line_type type, const size_t line_num, const size_t val)
+static bool lines_push(struct error* err, struct dynarr* lines, const enum parsed_line_type type, const size_t line_num, const size_t val)
 {
 	struct expanded_line result = { .type = type, .line_num = line_num, .val = val };
-	if (!llist_push(lines, &result, sizeof(result))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push expanded line to list");
+	if (!dynarr_push(lines, &result, sizeof(result))) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push expanded line");
 		return false;
 	}
 
@@ -118,23 +140,24 @@ static bool lines_push(struct error* err, struct llist* lines, const enum parsed
  * @param err Struct to store error.
  * @param expanded Struct to store expanded/unwound result.
  * @param parsed Parsed assembly.
- * @param defs_macros Linked list of parsed macro definitions.
+ * @param defs_macros Dynamic array of parsed macro definitions.
  * @returns 0 if successfully expanded/unwound. >0 line number if error.
  */
-static size_t expand_parsed(struct error* err, struct expanded_base* expanded, const struct parsed_base parsed, const struct llist defs_macros)
+static size_t expand_parsed(struct error* err, struct expanded_base* expanded, const struct parsed_base parsed, const struct dynarr defs_macros)
 {
 	assert(expanded);
 
 	// Copy data references as-is
-	if (llist_copy(&expanded->refs_data, parsed.refs_data) < parsed.refs_data.len) {
-		error_init(err, ERRVAL_FAILURE, "Failed to copy data references to list");
+	if (dynarr_copy(&expanded->refs_data, parsed.refs_data) < parsed.refs_data.len) {
+		error_init(err, ERRVAL_FAILURE, "Failed to copy data references");
 		return (expanded->line_num > 0) ? expanded->line_num : 1;
 	}
 
 	// Iterate through lines
-	struct llist_node* line_node = parsed.lines.head;
-	for (size_t lines_ind = 0; line_node && lines_ind < parsed.lines.len; line_node = line_node->next, lines_ind++) {
-		struct parsed_line* line = line_node->val;
+	for (size_t lines_ind = 0; lines_ind < parsed.lines.len; lines_ind++) {
+		struct parsed_line* line = dynarr_get(parsed.lines, lines_ind);
+		if (!line)
+			continue;
 
 		switch (line->type) {
 			case LINE_INST_E:
@@ -149,7 +172,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 			case LINE_REF_MACRO_E:
 				;
 				// Get macro referenced by line
-				struct parsed_ref_macro* ref_macro = llist_get(parsed.refs_macros, line->val);
+				struct parsed_ref_macro* ref_macro = dynarr_get(parsed.refs_macros, line->val);
 				if (!ref_macro) {
 					error_init(err, ERRVAL_FAILURE, "Macro reference index not in list: %zu", line->val);
 					return line->line_num;
@@ -164,6 +187,10 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 
 				// Build initial expanded macro
 				struct expanded_base macro_expanded_init = { .parent = expanded, .line_num = line->line_num };
+				if (!expanded_base_alloc(&macro_expanded_init, def_macro->base)) {
+					error_init(err, ERRVAL_FAILURE, "Failed to init expanded macro struct");
+					return line->line_num;
+				}
 
 				// Expand macro parameters
 				if (ref_macro->params.len > 0 || def_macro->params.len > 0) {
@@ -177,11 +204,12 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 					}
 
 					// Iterate through macro parameter definitions and references
-					struct llist_node* param_ref_node = ref_macro->params.head;
-					struct llist_node* param_def_node = def_macro->params.head;
-					for (size_t param_ind = 0; param_ref_node && param_def_node && param_ind < ref_macro->params.len && param_ind < def_macro->params.len; param_ref_node = param_ref_node->next, param_def_node = param_def_node->next, param_ind++) {
-						struct parsed_ref_macro_param* param_ref = param_ref_node->val;
-						char* param_def = param_def_node->val;
+					for (size_t param_ind = 0; param_ind < ref_macro->params.len && param_ind < def_macro->params.len; param_ind++) {
+						struct parsed_ref_macro_param* param_ref = dynarr_get(ref_macro->params, param_ind);
+						char* param_def = dynarr_get(def_macro->params, param_ind);
+
+						if (!param_ref || !param_def)
+							continue;
 
 						// Assemble expanded macro parameter
 						struct expanded_macro_param param = { .type = param_ref->type, .val = param_ref->val };
@@ -191,17 +219,17 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 						}
 
 						// Push expanded macro parameter
-						if (!llist_push(&macro_expanded_init.params, &param, sizeof(param))) {
-							error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro parameter to list");
+						if (!dynarr_push(&macro_expanded_init.params, &param, sizeof(param))) {
+							error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro parameter");
 							return line->line_num;
 						}
 					}
 				}
 
 				// Push initial expended macro to list
-				struct expanded_base* macro_expanded = llist_push(&expanded->macros, &macro_expanded_init, sizeof(macro_expanded_init));
+				struct expanded_base* macro_expanded = dynarr_push(&expanded->macros, &macro_expanded_init, sizeof(macro_expanded_init));
 				if (!macro_expanded) {
-					error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro to list");
+					error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro");
 					return line->line_num;
 				}
 
@@ -229,11 +257,15 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 		pc_offset += parent->inst_len;
 	}
 
+	// Get first expanded macro, used to update program counter offset
+	size_t macro_ind = 0;
+	struct expanded_base* macro = dynarr_get(expanded->macros, macro_ind);
+
 	// Iterate through data definitions
-	struct llist_node* macro_node = expanded->macros.head;
-	struct llist_node* data_node = parsed.defs_data.head;
-	for (size_t data_ind = 0; data_node && data_ind < parsed.defs_data.len; data_node = data_node->next, data_ind++) {
-		struct parsed_def_data* data = data_node->val;
+	for (size_t data_ind = 0; data_ind < parsed.defs_data.len; data_ind++) {
+		struct parsed_def_data* data = dynarr_get(parsed.defs_data, data_ind);
+		if (!data)
+			continue;
 
 		// Validate no macro parameter with same key already exists
 		if (expanded->params.len > 0 && expanded_macro_param_get(expanded->params, data->key)) {
@@ -242,20 +274,17 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 		}
 
 		// Add number of instructions in macros referenced beforehand to program counter offset
-		if (macro_node) {
-			struct expanded_base* macro = macro_node->val;
-			while (macro_node && data->line_num >= macro->line_num) {
-				pc_offset += macro->inst_len;
-				macro_node = macro_node->next;
-				macro = macro_node->val;
-			}
+		while (macro && data->line_num >= macro->line_num) {
+			pc_offset += macro->inst_len;
+			macro_ind++;
+			macro = dynarr_get(expanded->macros, macro_ind);
 		}
 
 		switch (data->type) {
 			case DATA_CONST_E:
 				// Push data definition as-is
-				if (!llist_push(&expanded->defs_data, data, sizeof(*data))) {
-					error_init(err, ERRVAL_FAILURE, "Failed to push data definition to list");
+				if (!dynarr_push(&expanded->defs_data, data, sizeof(*data))) {
+					error_init(err, ERRVAL_FAILURE, "Failed to push data definition");
 					return data->line_num;
 				}
 
@@ -264,8 +293,8 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 			case DATA_LABEL_E:
 				// No program counter offset to account for - push data definition as-is
 				if (pc_offset == 0) {
-					if (!llist_push(&expanded->defs_data, data, sizeof(*data))) {
-						error_init(err, ERRVAL_FAILURE, "Failed to push data definition to list");
+					if (!dynarr_push(&expanded->defs_data, data, sizeof(*data))) {
+						error_init(err, ERRVAL_FAILURE, "Failed to push data definition");
 						return data->line_num;
 					}
 
@@ -280,7 +309,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 				}
 
 				// Push data definition
-				if (!llist_push(&expanded->defs_data, &data_offset, sizeof(data_offset))) {
+				if (!dynarr_push(&expanded->defs_data, &data_offset, sizeof(data_offset))) {
 					error_init(err, ERRVAL_FAILURE, "Failed to push data definition to list");
 					return data->line_num;
 				}
@@ -330,7 +359,7 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 				case PARAM_REF_DATA_E:
 					;
 					// Get data key passed as macro parameter
-					char* parent_key = llist_get(expanded.parent->refs_data, macro_param->val);
+					char* parent_key = dynarr_get(expanded.parent->refs_data, macro_param->val);
 					if (!parent_key) {
 						error_init(err, ERRVAL_FAILURE, "Data reference not in list: %zu", macro_param->val);
 						return line_num;
@@ -386,14 +415,14 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
  * Push NGC instruction.
  *
  * @param err Struct to store error.
- * @param instructions Linked list to push NGC instruction.
+ * @param instructions Dynamic array to push NGC instruction.
  * @param inst NGC instruction.
  * @returns Whether NGC instruction was pushed successfully.
  */
-static bool inst_push(struct error* err, struct llist* instructions, const ngc_word_t inst)
+static bool inst_push(struct error* err, struct dynarr* instructions, const ngc_word_t inst)
 {
-	if (!llist_push(instructions, &inst, sizeof(inst))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push instruction to list");
+	if (!dynarr_push(instructions, &inst, sizeof(inst))) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push assembled instruction");
 		return false;
 	}
 
@@ -404,11 +433,11 @@ static bool inst_push(struct error* err, struct llist* instructions, const ngc_w
  * Assemble expanded/unwound assembly to NGC instructions.
  *
  * @param err Struct to store error.
- * @param instructions Linked list to push NGC instructions.
+ * @param instructions Dynamic array to push NGC instructions.
  * @param expanded Expanded/unwound assembly.
  * @returns 0 if successfully assembled. >0 line number if error.
  */
-static size_t assemble_expanded(struct error* err, struct llist* instructions, const struct expanded_base expanded)
+static size_t assemble_expanded(struct error* err, struct dynarr* instructions, const struct expanded_base expanded)
 {
 	// Find root/file scope
 	struct expanded_base* root = NULL;
@@ -416,9 +445,10 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 		for (root = expanded.parent; root->parent; root = root->parent);
 
 	// Iterate through lines
-	struct llist_node* line_node = expanded.lines.head;
-	for (size_t lines_ind = 0; line_node && lines_ind < expanded.lines.len; line_node = line_node->next, lines_ind++) {
-		struct parsed_line* line = line_node->val;
+	for (size_t lines_ind = 0; lines_ind < expanded.lines.len; lines_ind++) {
+		struct parsed_line* line = dynarr_get(expanded.lines, lines_ind);
+		if (!line)
+			continue;
 
 		switch (line->type) {
 			case LINE_INST_E:
@@ -430,7 +460,7 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 			case LINE_REF_DATA_E:
 				;
 				// Get referenced data key at given index
-				char* data_key = llist_get(expanded.refs_data, line->val);
+				char* data_key = dynarr_get(expanded.refs_data, line->val);
 				if (!data_key) {
 					error_init(err, ERRVAL_FAILURE, "Data reference index not in list: %zu", line->val);
 					return line->line_num;
@@ -451,7 +481,7 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 			case LINE_REF_MACRO_E:
 				;
 				// Get referenced expanded macro at given index
-				struct expanded_base* macro = llist_get(expanded.macros, line->val);
+				struct expanded_base* macro = dynarr_get(expanded.macros, line->val);
 				if (!macro) {
 					error_init(err, ERRVAL_FAILURE, "Macro index not in list: %zu", line->val);
 					return line->line_num;
@@ -478,10 +508,14 @@ static size_t assemble_expanded(struct error* err, struct llist* instructions, c
 	return 0;
 }
 
-size_t assemble_file_full(struct error* err, struct llist* instructions, const struct parsed_file file)
+size_t assemble_file_full(struct error* err, struct dynarr* instructions, const struct parsed_file file)
 {
 	size_t result = 1;
 	struct expanded_base file_expanded = { 0 };
+	if (!expanded_base_alloc(&file_expanded, file.base)) {
+		error_init(err, ERRVAL_FAILURE, "Failed to init expanded file struct");
+		goto exit;
+	}
 
 	if (!instructions) {
 		error_init(err, ERRVAL_FAILURE, "Result list is null");

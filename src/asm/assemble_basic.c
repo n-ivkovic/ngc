@@ -9,13 +9,13 @@
  * Push NGC instruction.
  *
  * @param err Struct to store error.
- * @param instructions Linked list to push NGC instruction.
+ * @param instructions Dynamic array to push NGC instruction.
  * @param inst NGC instruction.
  * @returns Whether NGC instruction was pushed successfully.
  */
-static bool inst_push(struct error* err, struct llist* instructions, const ngc_word_t inst)
+static bool inst_push(struct error* err, struct dynarr* instructions, const ngc_word_t inst)
 {
-	if (!llist_push(instructions, &inst, sizeof(inst))) {
+	if (!dynarr_push(instructions, &inst, sizeof(inst))) {
 		error_init(err, ERRVAL_FAILURE, "Failed to push instruction to list");
 		return false;
 	}
@@ -23,16 +23,17 @@ static bool inst_push(struct error* err, struct llist* instructions, const ngc_w
 	return true;
 }
 
-size_t assemble_file_basic(struct error* err, struct llist* instructions, const struct parsed_base file)
+size_t assemble_file_basic(struct error* err, struct dynarr* instructions, const struct parsed_base file)
 {
 	if (!instructions) {
 		error_init(err, ERRVAL_FAILURE, "Result list is null");
 		return 1;
 	}
 
-	struct llist_node* line_node = file.lines.head;
-	for (size_t lines_ind = 0; line_node && lines_ind < file.lines.len; line_node = line_node->next, lines_ind++) {
-		struct parsed_line* line = line_node->val;
+	for (size_t lines_ind = 0; lines_ind < file.lines.len; lines_ind++) {
+		struct parsed_line* line = dynarr_get(file.lines, lines_ind);
+		if (!line)
+			continue;
 
 		switch (line->type) {
 			case LINE_INST_E:
@@ -45,7 +46,7 @@ size_t assemble_file_basic(struct error* err, struct llist* instructions, const 
 			case LINE_REF_DATA_E:
 				;
 				// Get referenced data key at given index
-				char* data_key = llist_get(file.refs_data, line->val);
+				char* data_key = dynarr_get(file.refs_data, line->val);
 				if (!data_key) {
 					error_init(err, ERRVAL_FAILURE, "Data reference index not in list: %zu", line->val);
 					return line->line_num;

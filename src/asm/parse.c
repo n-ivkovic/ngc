@@ -58,20 +58,23 @@ static bool key_valid(const char* tok)
 }
 
 /**
- * Get index of key in linked list.
+ * Get index of key in dynamic array.
  *
  * @param key Key to search for.
- * @param list Linked list to search.
- * @returns Index of key in linked list. -1 if not found.
+ * @param list Dynamic array to search.
+ * @returns Index of key in dynamic array. -1 if not found.
  */
-static long long keys_get(const char* key, const struct llist list)
+static long long keys_get(const char* key, const struct dynarr da)
 {
 	if (!key)
 		return false;
 
-	struct llist_node* node = list.head;
-	for (size_t ind = 0; node && ind < list.len; node = node->next, ind++) {
-		if (PARSED_KEYS_EQ((char*)node->val, key))
+	for (size_t ind = 0; ind < da.len; ind++) {
+		char* val = dynarr_get(da, ind);
+		if (!val)
+			continue;
+
+		if (PARSED_KEYS_EQ(val, key))
 			return (long long)ind;
 	}
 
@@ -82,17 +85,17 @@ static long long keys_get(const char* key, const struct llist list)
  * Push parsed line.
  *
  * @param err Struct to store error.
- * @param lines Linked list to store parsed result.
+ * @param lines Dynamic array to store parsed result.
  * @param type Type of parsed line.
  * @param line_num Number of line in file.
  * @param val Parsed line value.
  * @returns Whether parsed line was pushed successfully.
  */
-static bool lines_push(struct error* err, struct llist* lines, const enum parsed_line_type type, const size_t line_num, const size_t val)
+static bool lines_push(struct error* err, struct dynarr* lines, const enum parsed_line_type type, const size_t line_num, const size_t val)
 {
 	struct parsed_line result = { .type = type, .line_num = line_num, .val = val };
-	if (!llist_push(lines, &result, sizeof(result))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push parsed line to list");
+	if (!dynarr_push(lines, &result, sizeof(result))) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push parsed line");
 		return false;
 	}
 
@@ -103,20 +106,20 @@ static bool lines_push(struct error* err, struct llist* lines, const enum parsed
  * Find or push parsed data reference.
  *
  * @param err Struct to store error.
- * @param refs_data Linked list to store parsed result.
+ * @param refs_data Dynamic array to store parsed result.
  * @param key Parsed data key.
  * @param key_size Size of parsed data key.
- * @returns Index parsed result is located at in linked list. -1 if error occurred.
+ * @returns Index parsed result is located at in dynamic array. -1 if error occurred.
  */
-static long long refs_data_push(struct error* err, struct llist* refs_data, const char* key, const size_t key_size)
+static long long refs_data_push(struct error* err, struct dynarr* refs_data, const char* key, const size_t key_size)
 {
 	// Find if key already exists in data references list
 	long long existing_ind = keys_get(key, *refs_data);
 	if (existing_ind >= 0)
 		return existing_ind;
 
-	if (!llist_push(refs_data, key, key_size)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push parsed data reference to list");
+	if (!dynarr_push(refs_data, key, key_size)) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push parsed data reference");
 		return -1;
 	}
 
@@ -127,16 +130,16 @@ static long long refs_data_push(struct error* err, struct llist* refs_data, cons
  * Push parsed macro parameter reference.
  *
  * @param err Struct to store error.
- * @param refs_macro_params Linked list to store parsed result.
+ * @param refs_macro_params Dynamic array to store parsed result.
  * @param type Type of parsed macro parameter reference.
  * @param val Parsed macro parameter value.
  * @returns Whether parsed macro parameter was pushed successfully.
  */
-static bool refs_macro_params_push(struct error* err, struct llist* refs_macro_params, const enum parsed_ref_macro_param_type type, const size_t val)
+static bool refs_macro_params_push(struct error* err, struct dynarr* refs_macro_params, const enum parsed_ref_macro_param_type type, const size_t val)
 {
 	struct parsed_ref_macro_param result = { .type = type, .val = val };
-	if (!llist_push(refs_macro_params, &result, sizeof(result))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro parameter reference to list");
+	if (!dynarr_push(refs_macro_params, &result, sizeof(result))) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro parameter reference");
 		return false;
 	}
 
@@ -248,12 +251,12 @@ static bool parse_key(struct error* err, char* key, const char* tok, const char*
  * Parse DEFINE statement.
  *
  * @param err Struct to store error.
- * @param defs_data Linked list to push parsed result to.
+ * @param defs_data Dynamic array to push parsed result to.
  * @param line_num Number of line in file.
  * @param line_toks Linked list of tokens in file line.
  * @returns Whether DEFINE statement was valid and parsed successfully.
  */
-static bool parse_def_data_define(struct error* err, struct llist* defs_data, const size_t line_num, const struct llist line_toks)
+static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, const size_t line_num, const struct llist line_toks)
 {
 	#define TOKS_DEFINE_LEN 3
 
@@ -316,8 +319,8 @@ static bool parse_def_data_define(struct error* err, struct llist* defs_data, co
 	}
 
 	// Push parsed result
-	if (!llist_push(defs_data, &result, sizeof(result))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push parsed data definition to list");
+	if (!dynarr_push(defs_data, &result, sizeof(result))) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push parsed data definition");
 		return false;
 	}
 
@@ -328,13 +331,13 @@ static bool parse_def_data_define(struct error* err, struct llist* defs_data, co
  * Parse LABEL statement.
  *
  * @param err Struct to store error.
- * @param defs_data Linked list to push parsed result to.
+ * @param defs_data Dynamic array to push parsed result to.
  * @param line_num Number of line in file.
  * @param line_toks Linked list of tokens in file line.
  * @param inst_num Number of instructions parsed.
  * @returns Whether LABEL statement was valid and parsed successfully.
  */
-static bool parse_def_data_label(struct error* err, struct llist* defs_data, const size_t line_num, const struct llist line_toks, const size_t inst_num)
+static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, const size_t line_num, const struct llist line_toks, const size_t inst_num)
 {
 	#define TOKS_LABEL_LEN 2
 
@@ -376,8 +379,8 @@ static bool parse_def_data_label(struct error* err, struct llist* defs_data, con
 	}
 
 	// Push parsed result
-	if (!llist_push(defs_data, &result, sizeof(result))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push parsed data definition to list");
+	if (!dynarr_push(defs_data, &result, sizeof(result))) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push parsed data definition");
 		return false;
 	}
 
@@ -388,19 +391,23 @@ static bool parse_def_data_label(struct error* err, struct llist* defs_data, con
  * Parse %MACRO statement.
  *
  * @param err Struct to store error.
- * @param defs_macros Linked list to push parsed result to.
+ * @param defs_macros Dynamic array to push parsed result to.
  * @param line_num Number of line in file.
  * @param line_toks Linked list of tokens in file line.
  * @param features Enabled assembly language features.
  * @returns Whether %MACRO statement was valid and parsed successfully.
  */
-static bool parse_def_macro(struct error* err, struct llist* defs_macros, const size_t line_num, const struct llist line_toks, const int features)
+static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const size_t line_num, const struct llist line_toks, const int features)
 {
 	#define TOKS_DEF_MACRO_MIN 2
 
 	assert(defs_macros);
 
 	struct parsed_def_macro result = { .line_num = line_num };
+	if (!parsed_def_macro_alloc(&result)) {
+		error_init(err, ERRVAL_FAILURE, "Failed to init parsed macro definition struct");
+		goto error;
+	}
 
 	struct llist_node* tok_node = line_toks.head;
 	for (size_t tok_ind = 0; (tok_node && tok_ind < line_toks.len) || tok_ind < TOKS_DEF_MACRO_MIN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
@@ -444,8 +451,8 @@ static bool parse_def_macro(struct error* err, struct llist* defs_macros, const 
 				}
 
 				// Add macro parameter to list of parameters
-				if (!llist_push(&result.params, param_key, sizeof(param_key))) {
-					error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro parameter definition to list");
+				if (!dynarr_push(&result.params, param_key, sizeof(param_key))) {
+					error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro parameter definition");
 					goto error;
 				}
 
@@ -454,8 +461,8 @@ static bool parse_def_macro(struct error* err, struct llist* defs_macros, const 
 	}
 
 	// Push parsed result to list
-	if (!llist_push(defs_macros, &result, sizeof(result))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro definition to list");
+	if (!dynarr_push(defs_macros, &result, sizeof(result))) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro definition");
 		goto error;
 	}
 
@@ -470,22 +477,27 @@ static bool parse_def_macro(struct error* err, struct llist* defs_macros, const 
  * Parse macro reference.
  *
  * @param err Struct to store error.
- * @param lines Linked list to push parsed result to.
- * @param refs_data Linked list to push parsed result to.
- * @param refs_macros Linked list to push parsed result to.
+ * @param lines Dynamic array to push parsed result to.
+ * @param refs_data Dynamic array to push parsed result to.
+ * @param refs_macros Dynamic array to push parsed result to.
  * @param line_num Number of line in file.
  * @param line_toks Linked list of tokens in file line.
  * @param features Enabled assembly language features.
  * @returns Whether macro reference was valid and parsed successfully.
  */
-static bool parse_ref_macro(struct error* err, struct llist* lines, struct llist* refs_data, struct llist* refs_macros, const size_t line_num, const struct llist line_toks, const int features)
+static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dynarr* refs_data, struct dynarr* refs_macros, const size_t line_num, const struct llist line_toks, const int features)
 {
 	#define TOKS_REF_MACRO_MIN 1
 
+	assert(lines);
 	assert(refs_data);
 	assert(refs_macros);
 
 	struct parsed_ref_macro result = { 0 };
+	if (!parsed_ref_macro_alloc(&result)) {
+		error_init(err, ERRVAL_FAILURE, "Failed to init parsed macro reference struct");
+		goto error;
+	}
 
 	struct llist_node* tok_node = line_toks.head;
 	for (size_t tok_ind = 0; (tok_node && tok_ind < line_toks.len) || tok_ind < TOKS_REF_MACRO_MIN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
@@ -540,8 +552,8 @@ static bool parse_ref_macro(struct error* err, struct llist* lines, struct llist
 	}
 
 	// Push macro reference result
-	if (!llist_push(refs_macros, &result, sizeof(result))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro reference to list");
+	if (!dynarr_push(refs_macros, &result, sizeof(result))) {
+		error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro reference");
 		goto error;
 	}
 
@@ -733,14 +745,14 @@ static long parse_inst_alu_jump(const char* tok)
  * Parse ALU instruction assembly.
  *
  * @param err Struct to store error.
- * @param lines Linked list to push parsed result.
+ * @param lines Dynamic array to push parsed result.
  * @param line_num Number of line in file.
  * @param line_st Assembly line with whitespace stripped.
  * @param line_len Length of assembly line.
  * @param features Enabled assembly language features.
  * @returns Enum value indicating whether ALU instruction was valid and parsed successfully, or hint if file line could be another kind of instruction.
  */
-static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist* lines, const size_t line_num, const char* line_st, const size_t line_len, const signed int features)
+static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynarr* lines, const size_t line_num, const char* line_st, const size_t line_len, const signed int features)
 {
 	// Original NandGame assembler sets bits 14-16 of ALU instructions to 1 despite only bit 16 being relevant
 	#define NGC_IN_ALU (NGC_IN_CI | (1 << 14) | (1 << 13))
@@ -862,15 +874,15 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct llist
  * Parse data instruction.
  *
  * @param err Struct to store error.
- * @param lines Linked list to push parsed result.
- * @param refs_data Linked list to push parsed result.
+ * @param lines Dynamic array to push parsed result.
+ * @param refs_data Dynamic array to push parsed result.
  * @param line_num Number of line in file.
  * @param line_tr Assembly line with whitespace trimmed.
  * @param line_len Length of assembly line.
  * @param features Enabled assembly language features.
  * @returns Whether data instruction was valid and parsed successfully.
  */
-static bool parse_inst_data(struct error* err, struct llist* lines, struct llist* refs_data, const size_t line_num, const char* line_tr, const size_t line_len, const signed int features)
+static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dynarr* refs_data, const size_t line_num, const char* line_tr, const size_t line_len, const signed int features)
 {
 	// Get pointer to '=' char
 	// Whether 'A' is being targeted before '=' is checked before this function
@@ -929,7 +941,7 @@ static bool parse_inst_data(struct error* err, struct llist* lines, struct llist
  *
  * @param err Struct to store error.
  * @param result Struct to store parsed result.
- * @param defs_macros Linked list to push parsed result.
+ * @param defs_macros Dynamic array to push parsed result.
  * @param scope Scope assembly line is being parsed within.
  * @param line_num Number of line in file.
  * @param line Assembly line.
@@ -937,7 +949,7 @@ static bool parse_inst_data(struct error* err, struct llist* lines, struct llist
  * @param features Enabled assembly language features.
  * @returns Whether line was valid and parsed successfully.
  */
-static bool parse_line(struct error* err, struct parsed_base* result, struct llist* defs_macros, enum parsed_scope* scope, const size_t line_num, const char* line, const size_t line_len, const int features)
+static bool parse_line(struct error* err, struct parsed_base* result, struct dynarr* defs_macros, enum parsed_scope* scope, const size_t line_num, const char* line, const size_t line_len, const int features)
 {
 	assert(result);
 	assert(scope);
@@ -1094,7 +1106,7 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 	// Initialise scope - set to file
 	enum parsed_scope scope = SCOPE_FILE_E;
 	struct parsed_base* result_scope = &file->base;
-	struct llist* defs_macros = &file->defs_macros;
+	struct dynarr* defs_macros = &file->defs_macros;
 
 	// Parse each line of file
 	while (fgets(f_line, sizeof(f_line), fp) != 0 && line_num <= FILE_LINES_MAX) {
@@ -1131,16 +1143,14 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 					defs_macros = NULL;
 
 					// Get last macro definition
-					struct llist_node* macros_node = file->defs_macros.head;
-					for (size_t macros_ind = 0; macros_node && macros_node->next && macros_ind < file->defs_macros.len; macros_node = macros_node->next, macros_ind++);
-
-					if (!macros_node) {
+					struct parsed_def_macro* def_macro = dynarr_get(file->defs_macros, file->defs_macros.len - 1);
+					if (!def_macro) {
 						error_init(err, ERRVAL_FAILURE, "Failed to find macro scope");
 						return line_num;
 					}
 
-					// Set destination to last macro in list
-					result_scope = (struct parsed_base*)&(((struct parsed_def_macro*)macros_node->val)->base);
+					// Set destination to last macro
+					result_scope = &def_macro->base;
 					break;
 
 				default:

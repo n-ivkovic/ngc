@@ -87,7 +87,13 @@ int main(int argc, char* argv[])
 	}
 
 	struct error err = { 0 };
+
+	// Initialise struct to store parsed input file
 	struct parsed_file file = { 0 };
+	if (!parsed_file_alloc(&file)) {
+		print_err("Failed to init parsed file struct");
+		return ERRVAL_FAILURE;
+	}
 
 	// Parse input file
 	size_t parse_result = parse_file(&err, &file, in_fp, LANG_FEAT_ALL);
@@ -100,14 +106,21 @@ int main(int argc, char* argv[])
 		return err.val;
 	}
 
+	// Initialise dynamic array of assembled parsed file
+	struct dynarr instructions = { 0 };
+	if (!dynarr_alloc(&instructions, 0x20, sizeof(ngc_word_t))) {
+		print_err("Failed to init assembled instructions dynamic array");
+		parsed_file_empty(&file);
+		return ERRVAL_FAILURE;
+	}
+
 	// Assemble parsed file
-	struct llist instructions = { 0 };
 	size_t assemble_result = assemble_file(&err, &instructions, file);
 	parsed_file_empty(&file);
 
 	// Exit if any error occurred when assembling
 	if (assemble_result > 0) {
-		llist_empty(&instructions);
+		dynarr_empty(&instructions);
 		print_err_err(in_path, assemble_result, err);
 		return err.val;
 	}
@@ -116,19 +129,16 @@ int main(int argc, char* argv[])
 	bool out_stdout = !out_path || strncmp(out_path, PATH_STDOUT, strlen(PATH_STDOUT) + 1) == 0;
 	FILE* out_fp = out_stdout ? stdout : fopen(out_path, "wb");
 	if (!out_fp) {
-		llist_empty(&instructions);
+		dynarr_empty(&instructions);
 		print_file_err(out_stdout ? "stdout" : out_path, "Failed to open file");
 		return ERRVAL_FILE;
 	}
 
 	// Output assembled instructions
-	struct llist_node* inst_node = instructions.head;
-	for (size_t inst_ind = 0; inst_node && inst_ind < instructions.len; inst_node = inst_node->next, inst_ind++) {
-		fwrite((ngc_word_t*)(inst_node->val), sizeof(ngc_word_t), 1, out_fp);
-	}
+	fwrite((ngc_word_t*)instructions.vals, instructions.val_size, instructions.len, out_fp);
 
 	fclose(out_fp);
-	llist_empty(&instructions);
+	dynarr_empty(&instructions);
 
 	return 0;
 }

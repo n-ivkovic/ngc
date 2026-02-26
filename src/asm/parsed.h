@@ -1,7 +1,7 @@
 #ifndef PARSED_H
 #define PARSED_H
 
-#include "llist.h"
+#include "../dynarr.h"
 #include "str.h"
 
 #include <ctype.h>
@@ -50,7 +50,7 @@ struct parsed_ref_macro_param {
  */
 struct parsed_ref_macro {
 	char key[PARSED_KEY_CHARS];
-	struct llist params; // llist of parsed_ref_macro_param
+	struct dynarr params; // Dynamic array of parsed_ref_macro_param
 };
 
 /**
@@ -75,10 +75,10 @@ struct parsed_def_data {
  * Base result of parsed assembly.
  */
 struct parsed_base {
-	struct llist lines; // llist of parsed_line
-	struct llist refs_data; // llist of char[PARSED_KEY_CHARS]
-	struct llist refs_macros; // llist of parsed_ref_macro
-	struct llist defs_data; // llist of parsed_def_data
+	struct dynarr lines; // Dynamic array of parsed_line
+	struct dynarr refs_data; // Dynamic array of char[PARSED_KEY_CHARS]
+	struct dynarr refs_macros; // Dynamic array of parsed_ref_macro
+	struct dynarr defs_data; // Dynamic array of parsed_def_data
 };
 
 /**
@@ -87,7 +87,7 @@ struct parsed_base {
 struct parsed_def_macro {
 	char key[PARSED_KEY_CHARS];
 	size_t line_num;
-	struct llist params; // llist of char[PARSED_KEY_CHARS]
+	struct dynarr params; // Dynamic array of char[PARSED_KEY_CHARS]
 	struct parsed_base base;
 };
 
@@ -96,26 +96,46 @@ struct parsed_def_macro {
  */
 struct parsed_file {
 	struct parsed_base base;
-	struct llist defs_macros; // llist of parsed_def_macro
+	struct dynarr defs_macros; // Dynamic array of parsed_def_macro
 };
+
+/**
+ * Allocate initial space for parsed macro reference.
+ */
+struct parsed_ref_macro* parsed_ref_macro_alloc(struct parsed_ref_macro* ref_macro);
+
+/**
+ * Allocate initial space for parsed macro definition.
+ */
+struct parsed_def_macro* parsed_def_macro_alloc(struct parsed_def_macro* def_macro);
+
+/**
+ * Allocate initial space for parsed assembly.
+ */
+struct parsed_base* parsed_base_alloc(struct parsed_base* base);
+
+/**
+ * Allocate initial space for parsed file.
+ */
+struct parsed_file* parsed_file_alloc(struct parsed_file* file);
 
 /**
  * Get parsed data definition from list using key.
  *
- * @param defs_data Linked list of parsed data definitions.
+ * @param defs_data Dynamic Dynamic array of parsed data definitions.
  * @param key Key of data definition to get.
  * @returns Pointer to data definition. NULL if not found.
  */
-struct parsed_def_data* parsed_def_data_get(const struct llist defs_data, const char* key);
+struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const char* key);
 
 /**
  * Get parsed macro definition from list using key.
  *
- * @param defs_macros Linked list of parsed macro definitions.
+ * @param defs_macros Dynamic Dynamic array of parsed macro definitions.
  * @param key Key of macro definition to get.
  * @returns Pointer to parsed macro definition. NULL if not found.
  */
-struct parsed_def_macro* parsed_def_macro_get(const struct llist defs_macros, const char* key);
+struct parsed_def_macro* parsed_def_macro_get(const struct dynarr defs_macros, const char* key);
 
 /**
  * Free values within parsed macro reference.
@@ -123,19 +143,9 @@ struct parsed_def_macro* parsed_def_macro_get(const struct llist defs_macros, co
 void parsed_ref_macro_empty(struct parsed_ref_macro* ref_macro);
 
 /**
- * Free parsed macro reference.
- */
-void parsed_ref_macro_free(struct parsed_ref_macro* ref_macro);
-
-/**
  * Free values within parsed macro definition.
  */
 void parsed_def_macro_empty(struct parsed_def_macro* def_macro);
-
-/**
- * Free parsed macro definition.
- */
-void parsed_def_macro_free(struct parsed_def_macro* def_macro);
 
 /**
  * Free values within parsed assembly.
@@ -143,18 +153,8 @@ void parsed_def_macro_free(struct parsed_def_macro* def_macro);
 void parsed_base_empty(struct parsed_base* base);
 
 /**
- * Free parsed assembly.
- */
-void parsed_base_free(struct parsed_base* base);
-
-/**
  * Free values within parsed file.
  */
 void parsed_file_empty(struct parsed_file* file);
-
-/**
- * Free parsed file.
- */
-void parsed_file_free(struct parsed_file* file);
 
 #endif
