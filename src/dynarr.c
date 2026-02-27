@@ -95,11 +95,12 @@ size_t dynarr_copy(struct dynarr* dst, const struct dynarr src)
 		if (!dynarr_alloc(dst, src.capacity, src.val_size))
 			return 0;
 
-		if (!memcpy(dst->vals, src.vals, src.capacity * src.val_size)) {
+		if (!memcpy(dst->vals, src.vals, src.len * src.val_size)) {
 			dynarr_empty(dst);
 			return 0;
 		}
 
+		dst->len = src.len;
 		return dst->len;
 	}
 
