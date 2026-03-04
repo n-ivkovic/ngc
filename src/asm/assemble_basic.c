@@ -16,7 +16,7 @@
 static bool inst_push(struct error* err, struct dynarr* instructions, const ngc_word_t inst)
 {
 	if (!dynarr_push(instructions, &inst, sizeof(inst))) {
-		error_init(err, ERRVAL_FAILURE, "Failed to push instruction to list");
+		error_init(err, ERRVAL_FAILURE, "Failed to push instruction");
 		return false;
 	}
 
@@ -26,7 +26,7 @@ static bool inst_push(struct error* err, struct dynarr* instructions, const ngc_
 size_t assemble_file_basic(struct error* err, struct dynarr* instructions, const struct parsed_base file)
 {
 	if (!instructions) {
-		error_init(err, ERRVAL_FAILURE, "Result list is null");
+		error_init(err, ERRVAL_FAILURE, "Instructions array is null");
 		return 1;
 	}
 
@@ -48,7 +48,7 @@ size_t assemble_file_basic(struct error* err, struct dynarr* instructions, const
 				// Get referenced data key at given index
 				char* data_key = dynarr_get(file.refs_data, line->val);
 				if (!data_key) {
-					error_init(err, ERRVAL_FAILURE, "Data reference index not in list: %zu", line->val);
+					error_init(err, ERRVAL_FAILURE, "Data reference index out of range: %zu", line->val);
 					return line->line_num;
 				}
 

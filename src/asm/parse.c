@@ -61,7 +61,7 @@ static bool key_valid(const char* tok)
  * Get index of key in dynamic array.
  *
  * @param key Key to search for.
- * @param list Dynamic array to search.
+ * @param da Dynamic array to search.
  * @returns Index of key in dynamic array. -1 if not found.
  */
 static long long keys_get(const char* key, const struct dynarr da)
@@ -113,7 +113,7 @@ static bool lines_push(struct error* err, struct dynarr* lines, const enum parse
  */
 static long long refs_data_push(struct error* err, struct dynarr* refs_data, const char* key, const size_t key_size)
 {
-	// Find if key already exists in data references list
+	// Find if key already exists in data references array
 	long long existing_ind = keys_get(key, *refs_data);
 	if (existing_ind >= 0)
 		return existing_ind;
@@ -444,7 +444,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 					goto error;
 				}
 
-				// Add macro parameter to list of parameters
+				// Push macro parameter to array
 				if (!dynarr_push(&result.params, param_key, sizeof(param_key))) {
 					error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro parameter definition");
 					goto error;
@@ -454,7 +454,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 		}
 	}
 
-	// Push parsed result to list
+	// Push parsed result to array
 	if (!dynarr_push(defs_macros, &result, sizeof(result))) {
 		error_init(err, ERRVAL_FAILURE, "Failed to push parsed macro definition");
 		goto error;
@@ -510,7 +510,7 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 				// Try parse parameter as number
 				long parsed_number = parse_number(tok);
 				if (parsed_number >= 0) {
-					// Push parsed parameter result to list
+					// Push parsed parameter result to array
 					if (!refs_macro_params_push(err, &result.params, PARAM_CONST_E, (size_t)parsed_number))
 						goto error;
 
@@ -532,7 +532,7 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 				if (ref_data_ind < 0)
 					goto error;
 
-				// Push parsed parameter result to list
+				// Push parsed parameter result to array
 				if (!refs_macro_params_push(err, &result.params, PARAM_REF_DATA_E, (size_t)ref_data_ind))
 					goto error;
 

@@ -115,18 +115,18 @@ void parsed_base_alloc(struct parsed_base* base);
 void parsed_file_alloc(struct parsed_file* file);
 
 /**
- * Get parsed data definition from list using key.
+ * Get parsed data definition from array using key.
  *
- * @param defs_data Dynamic Dynamic array of parsed data definitions.
+ * @param defs_data Dynamic array of parsed data definitions.
  * @param key Key of data definition to get.
  * @returns Pointer to data definition. NULL if not found.
  */
 struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const char* key);
 
 /**
- * Get parsed macro definition from list using key.
+ * Get parsed macro definition from array using key.
  *
- * @param defs_macros Dynamic Dynamic array of parsed macro definitions.
+ * @param defs_macros Dynamic array of parsed macro definitions.
  * @param key Key of macro definition to get.
  * @returns Pointer to parsed macro definition. NULL if not found.
  */

@@ -9,7 +9,7 @@
 
 /**
  * Expanded parsed assembly line.
- * Same struct as parsed_line, but redefined due to indexes referring to different lists.
+ * Same struct as parsed_line, but redefined due to indexes referring to different dynamic arrays.
  */
 struct expanded_line {
 	enum parsed_line_type type;
@@ -52,7 +52,7 @@ static struct expanded_base* expanded_base_alloc(struct expanded_base* base, con
 		return NULL;
 
 	// Failure to pre-allocate space for macros is critical
-	// Dynamic array resizes resize done after pre-allocate invalidates any expanded_base.parent pointing to a macro
+	// Dynamic array resizes done after pre-allocate invalidates any expanded_base.parent pointing to a macro
 	// TODO: Rework expanded_base struct to handle dynamic array resizes
 	if (parsed.refs_macros.len > 0 && dynarr_alloc(&base->macros, parsed.refs_macros.capacity, sizeof(struct expanded_base)) == 0)
 		return NULL;
@@ -168,7 +168,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 				// Get macro referenced by line
 				struct parsed_ref_macro* ref_macro = dynarr_get(parsed.refs_macros, line->val);
 				if (!ref_macro) {
-					error_init(err, ERRVAL_FAILURE, "Macro reference index not in list: %zu", line->val);
+					error_init(err, ERRVAL_FAILURE, "Macro reference index out of range: %zu", line->val);
 					return line->line_num;
 				}
 
@@ -220,7 +220,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 					}
 				}
 
-				// Push initial expended macro to list
+				// Push initial expended macro to array
 				struct expanded_base* macro_expanded = dynarr_push(&expanded->macros, &macro_expanded_init, sizeof(macro_expanded_init));
 				if (!macro_expanded) {
 					error_init(err, ERRVAL_FAILURE, "Failed to push expanded macro");
@@ -355,7 +355,7 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 					// Get data key passed as macro parameter
 					char* parent_key = dynarr_get(expanded.parent->refs_data, macro_param->val);
 					if (!parent_key) {
-						error_init(err, ERRVAL_FAILURE, "Data reference not in list: %zu", macro_param->val);
+						error_init(err, ERRVAL_FAILURE, "Data reference index out of range: %zu", macro_param->val);
 						return line_num;
 					}
 
@@ -456,7 +456,7 @@ static size_t assemble_expanded(struct error* err, struct dynarr* instructions, 
 				// Get referenced data key at given index
 				char* data_key = dynarr_get(expanded.refs_data, line->val);
 				if (!data_key) {
-					error_init(err, ERRVAL_FAILURE, "Data reference index not in list: %zu", line->val);
+					error_init(err, ERRVAL_FAILURE, "Data reference index out of range: %zu", line->val);
 					return line->line_num;
 				}
 
@@ -477,7 +477,7 @@ static size_t assemble_expanded(struct error* err, struct dynarr* instructions, 
 				// Get referenced expanded macro at given index
 				struct expanded_base* macro = dynarr_get(expanded.macros, line->val);
 				if (!macro) {
-					error_init(err, ERRVAL_FAILURE, "Macro index not in list: %zu", line->val);
+					error_init(err, ERRVAL_FAILURE, "Macro index out of range: %zu", line->val);
 					return line->line_num;
 				}
 
@@ -512,7 +512,7 @@ size_t assemble_file_full(struct error* err, struct dynarr* instructions, const 
 	}
 
 	if (!instructions) {
-		error_init(err, ERRVAL_FAILURE, "Result list is null");
+		error_init(err, ERRVAL_FAILURE, "Instructions array is null");
 		goto exit;
 	}
 
