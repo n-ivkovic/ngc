@@ -23,10 +23,10 @@ struct dynarr {
 void* dynarr_get(const struct dynarr da, const size_t ind);
 
 /**
- * Allocate initial space for dynamic array.
+ * Pre-allocate initial space for dynamic array.
  *
- * @param da Dynamic array to allocate space for.
- * @param capacity Initial number of values to allocate space for.
+ * @param da Dynamic array to pre-allocate space for.
+ * @param capacity Initial number of values to pre-allocate space for.
  * @param val_size Enforced maximum size of values.
  * @returns Number of bytes allocated for dynamic array. 0 if error.
  */

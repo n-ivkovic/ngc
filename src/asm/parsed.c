@@ -2,80 +2,41 @@
 
 #include <stdlib.h>
 
-#define PARSED_LINES_CAPACITY_INIT        0x10
-#define PARSED_DATA_CAPACITY_INIT         0x4
-#define PARSED_MACROS_CAPACITY_INIT       0x4
-#define PARSED_MACRO_PARAMS_CAPACITY_INIT 0x1
+#define PARSED_LINES_CAPACITY_INIT  8
+#define PARSED_DATA_CAPACITY_INIT   2
+#define PARSED_MACROS_CAPACITY_INIT 2
 
-struct parsed_ref_macro* parsed_ref_macro_alloc(struct parsed_ref_macro* ref_macro)
-{
-	if (!ref_macro)
-		return NULL;
-
-	if (!dynarr_alloc(&ref_macro->params, PARSED_MACRO_PARAMS_CAPACITY_INIT, sizeof(struct parsed_ref_macro_param)))
-		return NULL;
-
-	return ref_macro;
-}
-
-struct parsed_def_macro* parsed_def_macro_alloc(struct parsed_def_macro* def_macro)
+void parsed_def_macro_alloc(struct parsed_def_macro* def_macro)
 {
 	if (!def_macro)
-		return NULL;
+		return;
 
-	if (!parsed_base_alloc(&def_macro->base))
-		goto error;
+	parsed_base_alloc(&def_macro->base);
 
-	if (!dynarr_alloc(&def_macro->params, PARSED_MACRO_PARAMS_CAPACITY_INIT, sizeof(char[PARSED_KEY_CHARS])))
-		goto error;
-
-	return def_macro;
-
-	error:
-	parsed_def_macro_empty(def_macro);
-	return NULL;
+	// No space pre-allocated for macro parameters
 }
 
-struct parsed_base* parsed_base_alloc(struct parsed_base* base)
+void parsed_base_alloc(struct parsed_base* base)
 {
 	if (!base)
-		return NULL;
+		return;
 
-	if (!dynarr_alloc(&base->lines, PARSED_LINES_CAPACITY_INIT, sizeof(struct parsed_line)))
-		goto error;
+	// Failure to pre-allocate space is non-critical - not checking return results
+	dynarr_alloc(&base->lines, PARSED_LINES_CAPACITY_INIT, sizeof(struct parsed_line));
+	dynarr_alloc(&base->refs_data, PARSED_DATA_CAPACITY_INIT, sizeof(char[PARSED_KEY_CHARS]));
+	dynarr_alloc(&base->refs_macros, PARSED_MACROS_CAPACITY_INIT, sizeof(struct parsed_ref_macro));
+	dynarr_alloc(&base->defs_data, PARSED_DATA_CAPACITY_INIT, sizeof(struct parsed_def_data));
 
-	if (!dynarr_alloc(&base->refs_data, PARSED_DATA_CAPACITY_INIT, sizeof(char[PARSED_KEY_CHARS])))
-		goto error;
-
-	if (!dynarr_alloc(&base->refs_macros, PARSED_MACROS_CAPACITY_INIT, sizeof(struct parsed_ref_macro)))
-		goto error;
-
-	if (!dynarr_alloc(&base->defs_data, PARSED_DATA_CAPACITY_INIT, sizeof(struct parsed_def_data)))
-		goto error;
-
-	return base;
-
-	error:
-	parsed_base_empty(base);
-	return NULL;
+	// No space pre-allocated for macro parameters
 }
 
-struct parsed_file* parsed_file_alloc(struct parsed_file* file)
+void parsed_file_alloc(struct parsed_file* file)
 {
 	if (!file)
-		return NULL;
+		return;
 
-	if (!parsed_base_alloc(&file->base))
-		goto error;
-
-	if (!dynarr_alloc(&file->defs_macros, PARSED_MACROS_CAPACITY_INIT, sizeof(struct parsed_def_macro)))
-		goto error;
-
-	return file;
-
-	error:
-	parsed_file_empty(file);
-	return NULL;
+	parsed_base_alloc(&file->base);
+	dynarr_alloc(&file->defs_macros, PARSED_MACROS_CAPACITY_INIT, sizeof(struct parsed_def_macro)); // Failure to pre-allocate space is non-critical - not checking return result
 }
 
 struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const char* key)

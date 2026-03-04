@@ -100,24 +100,19 @@ struct parsed_file {
 };
 
 /**
- * Allocate initial space for parsed macro reference.
+ * Pre-allocate initial space for parsed macro definition.
  */
-struct parsed_ref_macro* parsed_ref_macro_alloc(struct parsed_ref_macro* ref_macro);
+void parsed_def_macro_alloc(struct parsed_def_macro* def_macro);
 
 /**
- * Allocate initial space for parsed macro definition.
+ * Pre-allocate initial space for parsed assembly.
  */
-struct parsed_def_macro* parsed_def_macro_alloc(struct parsed_def_macro* def_macro);
+void parsed_base_alloc(struct parsed_base* base);
 
 /**
- * Allocate initial space for parsed assembly.
+ * Pre-allocate initial space for parsed file.
  */
-struct parsed_base* parsed_base_alloc(struct parsed_base* base);
-
-/**
- * Allocate initial space for parsed file.
- */
-struct parsed_file* parsed_file_alloc(struct parsed_file* file);
+void parsed_file_alloc(struct parsed_file* file);
 
 /**
  * Get parsed data definition from list using key.

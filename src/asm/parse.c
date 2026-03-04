@@ -404,10 +404,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 	assert(defs_macros);
 
 	struct parsed_def_macro result = { .line_num = line_num };
-	if (!parsed_def_macro_alloc(&result)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to init parsed macro definition struct");
-		goto error;
-	}
+	parsed_def_macro_alloc(&result);
 
 	struct llist_node* tok_node = line_toks.head;
 	for (size_t tok_ind = 0; (tok_node && tok_ind < line_toks.len) || tok_ind < TOKS_DEF_MACRO_MIN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
@@ -494,10 +491,6 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 	assert(refs_macros);
 
 	struct parsed_ref_macro result = { 0 };
-	if (!parsed_ref_macro_alloc(&result)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to init parsed macro reference struct");
-		goto error;
-	}
 
 	struct llist_node* tok_node = line_toks.head;
 	for (size_t tok_ind = 0; (tok_node && tok_ind < line_toks.len) || tok_ind < TOKS_REF_MACRO_MIN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {

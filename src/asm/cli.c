@@ -90,10 +90,7 @@ int main(int argc, char* argv[])
 
 	// Initialise struct to store parsed input file
 	struct parsed_file file = { 0 };
-	if (!parsed_file_alloc(&file)) {
-		print_err("Failed to init parsed file struct");
-		return ERRVAL_FAILURE;
-	}
+	parsed_file_alloc(&file);
 
 	// Parse input file
 	size_t parse_result = parse_file(&err, &file, in_fp, LANG_FEAT_ALL);
@@ -108,11 +105,7 @@ int main(int argc, char* argv[])
 
 	// Initialise dynamic array of assembled parsed file
 	struct dynarr instructions = { 0 };
-	if (!dynarr_alloc(&instructions, 0x20, sizeof(ngc_word_t))) {
-		print_err("Failed to init assembled instructions dynamic array");
-		parsed_file_empty(&file);
-		return ERRVAL_FAILURE;
-	}
+	dynarr_alloc(&instructions, 0x20, sizeof(ngc_word_t)); // Failure to pre-allocate space is non-critical - not checking return result
 
 	// Assemble parsed file
 	size_t assemble_result = assemble_file(&err, &instructions, file);

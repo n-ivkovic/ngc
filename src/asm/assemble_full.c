@@ -41,6 +41,33 @@ struct expanded_base {
 };
 
 /**
+ * Pre-allocate initial space for expanded assembly.
+ *
+ * @param base Expanded assembly to pre-allocate space for.
+ * @param parsed Parsed assembly to determine size of space to pre-allocate.
+ */
+static struct expanded_base* expanded_base_alloc(struct expanded_base* base, const struct parsed_base parsed)
+{
+	if (!base)
+		return NULL;
+
+	// Failure to pre-allocate space for macros is critical
+	// Dynamic array resizes resize done after pre-allocate invalidates any expanded_base.parent pointing to a macro
+	// TODO: Rework expanded_base struct to handle dynamic array resizes
+	if (parsed.refs_macros.len > 0 && dynarr_alloc(&base->macros, parsed.refs_macros.capacity, sizeof(struct expanded_base)) == 0)
+		return NULL;
+
+	// Failure to pre-allocate space is non-critical - not checking return results
+	dynarr_alloc(&base->lines, parsed.lines.capacity, sizeof(struct expanded_line));
+	dynarr_alloc(&base->refs_data, parsed.refs_data.capacity, sizeof(char[PARSED_KEY_CHARS]));
+	dynarr_alloc(&base->defs_data, parsed.defs_data.capacity, sizeof(struct parsed_def_data));
+
+	// No space pre-allocated for macro parameters
+
+	return base;
+}
+
+/**
  * Free values within expanded assembly.
  */
 static void expanded_base_empty(struct expanded_base* base)
@@ -54,39 +81,6 @@ static void expanded_base_empty(struct expanded_base* base)
 	dynarr_empty(&base->params);
 	dynarr_empty(&base->refs_data);
 	dynarr_empty(&base->defs_data);
-}
-
-/**
- * Allocate initial space for expanded assembly.
- *
- * @param base Expanded assembly to allocate space for.
- * @param parsed Parsed assembly to determine initial space to allocate.
- */
-static struct expanded_base* expanded_base_alloc(struct expanded_base* base, const struct parsed_base parsed)
-{
-	if (!base)
-		return NULL;
-
-	if (!dynarr_alloc(&base->lines, parsed.lines.capacity, sizeof(struct expanded_line)))
-		goto error;
-
-	if (!dynarr_alloc(&base->macros, parsed.refs_macros.capacity, sizeof(struct expanded_base)))
-		goto error;
-
-	if (!dynarr_alloc(&base->params, 1, sizeof(struct expanded_macro_param)))
-		goto error;
-
-	if (!dynarr_alloc(&base->refs_data, parsed.refs_data.capacity, sizeof(char[PARSED_KEY_CHARS])))
-		goto error;
-
-	if (!dynarr_alloc(&base->defs_data, parsed.defs_data.capacity, sizeof(struct parsed_def_data)))
-		goto error;
-
-	return base;
-
-	error:
-	expanded_base_empty(base);
-	return NULL;
 }
 
 /**
@@ -310,7 +304,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 
 				// Push data definition
 				if (!dynarr_push(&expanded->defs_data, &data_offset, sizeof(data_offset))) {
-					error_init(err, ERRVAL_FAILURE, "Failed to push data definition to list");
+					error_init(err, ERRVAL_FAILURE, "Failed to push data definition");
 					return data->line_num;
 				}
 
