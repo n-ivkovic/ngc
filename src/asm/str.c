@@ -95,7 +95,7 @@ int str_comp(const char* s1, const char* s2, const size_t len, int (*to)(const i
 	return 0;
 }
 
-long long str_split(struct llist* list, const char* src, const size_t len, const char* delim)
+long long str_split(struct dynarr* da, const char* src, const size_t len, const char* delim)
 {
 	if (!src)
 		return -1;
@@ -114,13 +114,13 @@ long long str_split(struct llist* list, const char* src, const size_t len, const
 		if (token_ind + token_len > len)
 			token_len -= (token_ind + token_len) - len;
 
-		// Ensure token is null-delmited
-		char token[STR_CHARS(token_len)];
+		// Copy token to string sized for dynamic array
+		char token[STR_CHARS(len)];
 		if (!str_copy(token, &src[token_ind], token_len))
 			return -1;
 
-		// Push copy of token to list
-		if (!llist_push(list, token, sizeof(token)))
+		// Push copy of token to dynamic array
+		if (!dynarr_push(da, token, sizeof(token)))
 			return -1;
 
 		// Add token length + any proceeding delim to get index of next token

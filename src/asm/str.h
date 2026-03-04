@@ -1,7 +1,7 @@
 #ifndef STR_H
 #define STR_H
 
-#include "llist.h"
+#include "../dynarr.h"
 
 #include <stddef.h>
 
@@ -66,15 +66,15 @@ char* str_trim(char* dst, const char* src, const size_t len);
 int str_comp(const char* s1, const char* s2, const size_t len, int (*to)(const int));
 
 /**
- * Split string by delimeter to linked list of strings.
+ * Split string by delimeter to dynamic array of strings.
  *
- * @param list Linked list to store split string.
+ * @param da Dynamic array to store split string.
  * @param src Input string.
  * @param len Max number of chars to look at.
  * @param delim Delimeter to split string by.
- * @returns Number of items pushed to linked list. -1 if error.
+ * @returns Number of items pushed to dynamic array. -1 if error.
  */
-long long str_split(struct llist* list, const char* src, const size_t len, const char* delim);
+long long str_split(struct dynarr* da, const char* src, const size_t len, const char* delim);
 
 /**
  * Return string as unsigned long long.

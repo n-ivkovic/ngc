@@ -253,10 +253,10 @@ static bool parse_key(struct error* err, char* key, const char* tok, const char*
  * @param err Struct to store error.
  * @param defs_data Dynamic array to push parsed result to.
  * @param line_num Number of line in file.
- * @param line_toks Linked list of tokens in file line.
+ * @param line_toks Dynamic array of tokens in file line.
  * @returns Whether DEFINE statement was valid and parsed successfully.
  */
-static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, const size_t line_num, const struct llist line_toks)
+static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, const size_t line_num, const struct dynarr line_toks)
 {
 	#define TOKS_DEFINE_LEN 3
 
@@ -265,9 +265,8 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 	struct parsed_def_data result = { .type = DATA_CONST_E, .line_num = line_num };
 
 	// Parse one token at a time
-	struct llist_node* tok_node = line_toks.head;
-	for (size_t tok_ind = 0; tok_ind <= TOKS_DEFINE_LEN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
-		char* tok = tok_node ? (char*)(tok_node->val) : NULL;
+	for (size_t tok_ind = 0; tok_ind <= TOKS_DEFINE_LEN; tok_ind++) {
+		char* tok = dynarr_get(line_toks, tok_ind);
 
 		switch (tok_ind) {
 			// DEFINE keyword - verified outside this function
@@ -333,19 +332,18 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
  * @param err Struct to store error.
  * @param defs_data Dynamic array to push parsed result to.
  * @param line_num Number of line in file.
- * @param line_toks Linked list of tokens in file line.
+ * @param line_toks Dynamic array of tokens in file line.
  * @param inst_num Number of instructions parsed.
  * @returns Whether LABEL statement was valid and parsed successfully.
  */
-static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, const size_t line_num, const struct llist line_toks, const size_t inst_num)
+static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, const size_t line_num, const struct dynarr line_toks, const size_t inst_num)
 {
 	#define TOKS_LABEL_LEN 2
 
 	struct parsed_def_data result = { .type = DATA_LABEL_E, .line_num = line_num, .val = inst_num };
 
-	struct llist_node* tok_node = line_toks.head;
-	for (size_t tok_ind = 0; tok_ind <= TOKS_LABEL_LEN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
-		char* tok = tok_node ? (char*)(tok_node->val) : NULL;
+	for (size_t tok_ind = 0; tok_ind <= TOKS_LABEL_LEN; tok_ind++) {
+		char* tok = dynarr_get(line_toks, tok_ind);
 
 		switch (tok_ind) {
 			// LABEL keyword - verified outside this function
@@ -393,11 +391,11 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
  * @param err Struct to store error.
  * @param defs_macros Dynamic array to push parsed result to.
  * @param line_num Number of line in file.
- * @param line_toks Linked list of tokens in file line.
+ * @param line_toks Dynamic array of tokens in file line.
  * @param features Enabled assembly language features.
  * @returns Whether %MACRO statement was valid and parsed successfully.
  */
-static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const size_t line_num, const struct llist line_toks, const int features)
+static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const size_t line_num, const struct dynarr line_toks, const int features)
 {
 	#define TOKS_DEF_MACRO_MIN 2
 
@@ -406,9 +404,8 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 	struct parsed_def_macro result = { .line_num = line_num };
 	parsed_def_macro_alloc(&result);
 
-	struct llist_node* tok_node = line_toks.head;
-	for (size_t tok_ind = 0; (tok_node && tok_ind < line_toks.len) || tok_ind < TOKS_DEF_MACRO_MIN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
-		char* tok = tok_node ? (char*)(tok_node->val) : NULL;
+	for (size_t tok_ind = 0; tok_ind < line_toks.len || tok_ind < TOKS_DEF_MACRO_MIN; tok_ind++) {
+		char* tok = dynarr_get(line_toks, tok_ind);
 
 		switch (tok_ind) {
 			// %MACRO keyword - verified outside this function
@@ -478,11 +475,11 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
  * @param refs_data Dynamic array to push parsed result to.
  * @param refs_macros Dynamic array to push parsed result to.
  * @param line_num Number of line in file.
- * @param line_toks Linked list of tokens in file line.
+ * @param line_toks Dynamic array of tokens in file line.
  * @param features Enabled assembly language features.
  * @returns Whether macro reference was valid and parsed successfully.
  */
-static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dynarr* refs_data, struct dynarr* refs_macros, const size_t line_num, const struct llist line_toks, const int features)
+static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dynarr* refs_data, struct dynarr* refs_macros, const size_t line_num, const struct dynarr line_toks, const int features)
 {
 	#define TOKS_REF_MACRO_MIN 1
 
@@ -492,9 +489,8 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 
 	struct parsed_ref_macro result = { 0 };
 
-	struct llist_node* tok_node = line_toks.head;
-	for (size_t tok_ind = 0; (tok_node && tok_ind < line_toks.len) || tok_ind < TOKS_REF_MACRO_MIN; tok_node = (tok_node) ? tok_node->next : NULL, tok_ind++) {
-		char* tok = tok_node ? (char*)(tok_node->val) : NULL;
+	for (size_t tok_ind = 0; tok_ind < line_toks.len || tok_ind < TOKS_REF_MACRO_MIN; tok_ind++) {
+		char* tok = dynarr_get(line_toks, tok_ind);
 
 		switch (tok_ind) {
 			// Key
@@ -952,7 +948,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 	char line_tr[STR_CHARS(line_len)];
 	char line_st[STR_CHARS(line_len)];
 
-	struct llist line_toks = { 0 };
+	struct dynarr line_toks = { 0 };
 
 	// Trim whitespace from line
 	if (!str_trim(line_tr, line, line_len)) {
@@ -969,7 +965,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 	}
 
 	if (features > 0) {
-		// Build list of tokens in line
+		// Build array of tokens in line
 		if (!str_split(&line_toks, line_tr, line_tr_len, WHITESPACE)) {
 			error_init(err, ERRVAL_FAILURE, "Failed to split string");
 			goto exit;
@@ -977,7 +973,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 
 		// Copy first token
 		char line_tok_first[STR_CHARS(STRULL_MAX_LEN)] = { 0 };
-		if (!str_copy(line_tok_first, (char*)llist_get(line_toks, 0), STRULL_MAX_LEN)) {
+		if (!str_copy(line_tok_first, (char*)dynarr_get(line_toks, 0), STRULL_MAX_LEN)) {
 			error_init(err, ERRVAL_FAILURE, "Failed to copy string");
 			goto exit;
 		}
@@ -1077,7 +1073,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 	}
 
 	exit:
-	llist_empty(&line_toks);
+	dynarr_empty(&line_toks);
 	return success;
 }
 
