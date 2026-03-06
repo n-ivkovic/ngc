@@ -38,7 +38,7 @@
 #define CLOCK_HZ_MULTI 10
 
 #define WIN_GROUP_1_X 0
-#define WIN_GROUP_1_COLS 23
+#define WIN_GROUP_1_COLS 24
 #define WIN_GROUP_2_X (WIN_GROUP_1_X + WIN_GROUP_1_COLS + 1)
 #define WIN_GROUP_2_COLS 27
 #define WIN_GROUP_3_X (WIN_GROUP_2_X + WIN_GROUP_2_COLS + 1)
@@ -47,7 +47,7 @@
 #define WIN_CLOCK_Y 0
 #define WIN_CLOCK_ROWS (WIN_ROWS(2))
 #define WIN_REG_Y (WIN_CLOCK_Y + WIN_CLOCK_ROWS)
-#define WIN_REG_ROWS (WIN_ROWS(2))
+#define WIN_REG_ROWS (WIN_ROWS(3))
 #define WIN_INTR_Y (WIN_REG_Y + WIN_REG_ROWS)
 #define WIN_INTR_ROWS (WIN_ROWS(1))
 #define WIN_RAM_Y 0
@@ -63,8 +63,8 @@
 #define WINS_OFFSET_Y(scr_rows) ((scr_rows - WINS_TOTAL_ROWS) / 2)
 #define WINS_OFFSET_X(scr_cols) ((scr_cols - WINS_TOTAL_COLS) / 2)
 
-#define WIN_RAM_ITEMS 9
-#define WIN_ROM_ITEMS 9
+#define WIN_RAM_ITEMS 10
+#define WIN_ROM_ITEMS 10
 
 #define MEM_OFFSET_IND(ind, size) ((ind / size) * size)
 
@@ -176,7 +176,7 @@ static void wprint_label(WINDOW* win, const char label[], const unsigned char la
 	}
 }
 
-static void wprint_result_val(WINDOW* win, const int y, const int x, const char label[], const unsigned char label_padding, const ngc_word_t val)
+static void wprint_result_val(WINDOW* win, const int y, const int x, const char label[], const unsigned char label_padding, const ngc_uword_t val)
 {
 	wmove(win, y, x);
 	wprint_label(win, label, label_padding);
@@ -184,7 +184,7 @@ static void wprint_result_val(WINDOW* win, const int y, const int x, const char 
 	wprintw(win, "0x%04hX", val);
 }
 
-static void wprint_result_diff(WINDOW* win, const int y, const int x, const char label[], const unsigned char label_padding, const ngc_word_t val_in, const ngc_word_t val_out)
+static void wprint_result_diff(WINDOW* win, const int y, const int x, const char label[], const unsigned char label_padding, const ngc_uword_t val_in, const ngc_uword_t val_out)
 {
 	wmove(win, y, x);
 	wprint_label(win, label, label_padding);
@@ -230,10 +230,13 @@ static void window_registers_update(WINDOW* win, const struct ngc_tick_result ti
 	int y, x;
 	getyx(win, y, x);
 
-	wprint_result_diff(win, y, x, "A", 1, tick_result.a_in, tick_result.a_out);
+	wprint_result_diff(win, y, x, "A", 2, tick_result.a_in, tick_result.a_out);
 	y++;
 
-	wprint_result_diff(win, y, x, "D", 1, tick_result.d_in, tick_result.d_out);
+	wprint_result_diff(win, y, x, "D", 2, tick_result.d_in, tick_result.d_out);
+	y++;
+
+	wprint_result_diff(win, y, x, "PC", 1, tick_result.pc_in, tick_result.pc_out);
 	y++;
 
 	window_update_finish(win, "Registers");
@@ -246,7 +249,7 @@ static void window_internal_update(WINDOW* win, const struct ngc_tick_result tic
 	int y, x;
 	getyx(win, y, x);
 
-	wprint_result_val(win, y, x, "ALU", 3, (ngc_word_t)tick_result.alu);
+	wprint_result_val(win, y, x, "ALU", 3, tick_result.alu);
 	y++;
 
 	window_update_finish(win, "Internal");
