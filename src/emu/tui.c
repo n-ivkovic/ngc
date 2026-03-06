@@ -30,7 +30,9 @@
 #define US_PER_SEC 1000000
 #define NS_PER_US 1000
 
+#define KEYIN_PER_SEC 12
 #define SCRDRAW_PER_SEC 12
+#define US_PER_KEYIN (US_PER_SEC / KEYIN_PER_SEC)
 #define US_PER_SCRDRAW (US_PER_SEC / SCRDRAW_PER_SEC)
 
 #define CLOCK_HZ_MIN 1
@@ -324,11 +326,12 @@ static void windows_init(struct result_wins* wins, const int scr_rows, const int
 	wins->rom = newwin(WIN_ROM_ROWS, WIN_GROUP_3_COLS, WIN_ROM_Y + y_offset, WIN_GROUP_3_X + x_offset);
 }
 
-static void windows_mem_update(const struct result_wins wins, const struct ngc_tick_result tick_result, const struct ngc_mem* mem)
+static void windows_update(const struct result_wins wins, const struct ngc_clock clock, const struct ngc_tick_result tick_result, const struct ngc_mem* mem)
 {
 	if (!mem)
 		return;
 
+	window_clock_update(wins.clock, clock);
 	window_registers_update(wins.registers, tick_result);
 	window_internal_update(wins.internal, tick_result);
 	window_ram_update(wins.ram, tick_result, &mem->ram);
@@ -439,14 +442,15 @@ int main(int argc, char* argv[])
 				;
 				clock.hz = parse_clock_hz_opt(optarg);
 				if (clock.hz == 0) {
-					print_err("Invalid clock Hz: %s", optarg);
+					print_err("Invalid NGC clock Hz: %s", optarg);
 					goto exit;
 				}
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-emu v0.2.0%s", EOL);
-				return 0;
+				printf("ngc-emu v0.3.0%s", EOL);
+				success = true;
+				goto exit;
 			case ':':
 				print_err("Option -%c requires an argument", optopt);
 				goto exit;
@@ -501,73 +505,68 @@ int main(int argc, char* argv[])
 		goto exit;
 	}
 
-	// Init tick result windows
+	// Init display windows
 	struct result_wins windows;
 	int scr_rows, scr_cols;
 	getmaxyx(stdscr, scr_rows, scr_cols);
 	windows_init(&windows, scr_rows, scr_cols);
 	windows_set = true;
 
-	long long last_tick_epoch_us = 0, last_scrdraw_epoch_us = 0;
+	long long last_keyin_epoch_us = 0, last_tick_epoch_us = 0, last_scrdraw_epoch_us = 0;
 	struct ngc_tick_result tick_result;
 
-	// Tick NGC clock until end of ROM reached
+	// Update emulation until end of ROM reached
 	while (mem.pc < mem.rom.len) {
-		long long loop_start_epoch_us = get_epoch_us();
-		long long now_epoch_us;
-
 		bool reset = false, step = false;
 
-		// Read keyboard input
-		int input = getch();
-		switch (input) {
-			case 'q':
-			case 'Q':
-			case 27: // Esc
-				success = true;
-				goto exit;
-			case 'r':
-			case 'R':
-				if (!ngc_mem_reset(&mem)) {
-					print_err("Failed to reset NGC memory");
+		// Read keyboard input if due
+		if (get_epoch_us() - last_keyin_epoch_us >= US_PER_KEYIN) {
+			switch (getch()) {
+				case 'q':
+				case 'Q':
+				case 27: // Esc
+					success = true;
 					goto exit;
-				}
-				reset = true;
-				break;
-			case 'p':
-			case 'P':
-				clock.enabled = !clock.enabled;
-				break;
-			case 's':
-			case 'S':
-				step = !clock.enabled;
-				break;
-			case '[':
-				if (clock.hz > CLOCK_HZ_MIN)
-					clock.hz /= CLOCK_HZ_MULTI;
-				break;
-			case ']':
-				if (clock.hz < CLOCK_HZ_MAX)
-					clock.hz *= CLOCK_HZ_MULTI;
-				break;
+				case 'r':
+				case 'R':
+					if (!ngc_mem_reset(&mem)) {
+						print_err("Failed to reset NGC memory");
+						goto exit;
+					}
+					reset = true;
+					break;
+				case 'p':
+				case 'P':
+					clock.enabled = !clock.enabled;
+					break;
+				case 's':
+				case 'S':
+					step = !clock.enabled;
+					break;
+				case '[':
+					if (clock.hz > CLOCK_HZ_MIN)
+						clock.hz /= CLOCK_HZ_MULTI;
+					break;
+				case ']':
+					if (clock.hz < CLOCK_HZ_MAX)
+						clock.hz *= CLOCK_HZ_MULTI;
+					break;
+			}
+
+			last_keyin_epoch_us = get_epoch_us();
 		}
 
 		long long us_per_tick = US_PER_SEC / clock.hz;
-		long long us_per_loop = (us_per_tick > US_PER_SCRDRAW ? us_per_tick : US_PER_SCRDRAW) / 2;
 
-		// Do tick
-		now_epoch_us = get_epoch_us();
-		if (reset || step || (clock.enabled && now_epoch_us - last_tick_epoch_us > us_per_tick)) {
-			last_tick_epoch_us = now_epoch_us;
+		// Tick processor if due
+		if (reset || step || (clock.enabled && get_epoch_us() - last_tick_epoch_us >= us_per_tick)) {
 			ngc_tick(&tick_result, &mem);
+			last_tick_epoch_us = get_epoch_us();
 		}
 
-		// Update display
-		now_epoch_us = get_epoch_us();
-		if (reset || now_epoch_us - last_scrdraw_epoch_us > US_PER_SCRDRAW) {
-			last_scrdraw_epoch_us = now_epoch_us;
-
-			// Resize result windows if needed
+		// Draw display windows if due
+		if (reset || get_epoch_us() - last_scrdraw_epoch_us >= US_PER_SCRDRAW) {
+			// Re-center display windows on terminal resize
 			int new_scr_rows, new_scr_cols;
 			getmaxyx(stdscr, new_scr_rows, new_scr_cols);
 			if (new_scr_rows != scr_rows || new_scr_cols != scr_cols) {
@@ -578,15 +577,28 @@ int main(int argc, char* argv[])
 				refresh();
 			}
 
-			// Draw result windows
-			window_clock_update(windows.clock, clock);
-			windows_mem_update(windows, tick_result, &mem);
+			windows_update(windows, clock, tick_result, &mem);
+			last_scrdraw_epoch_us = get_epoch_us();
 		}
 
-		// Sleep before looping if required
-		long long loop_sleep_us = us_per_loop - (get_epoch_us() - loop_start_epoch_us);
-		if (loop_sleep_us > 0)
-			sleep_us(loop_sleep_us);
+		// Get times events are next due
+		long long event_epochs_us[3] = {
+			last_keyin_epoch_us + US_PER_KEYIN,
+			last_tick_epoch_us + us_per_tick,
+			last_scrdraw_epoch_us + US_PER_SCRDRAW
+		};
+
+		// Get next time an event is due
+		long long next_event_epoch_us = event_epochs_us[0];
+		for (size_t ind = 0; ind < (sizeof(event_epochs_us) / sizeof(next_event_epoch_us)); ind++) {
+			if (event_epochs_us[ind] < next_event_epoch_us)
+				next_event_epoch_us = event_epochs_us[ind];
+		}
+
+		// Sleep until next event is due
+		long long sleep_time_us = next_event_epoch_us - get_epoch_us();
+		if (sleep_time_us > 0)
+			sleep_us(sleep_time_us);
 	}
 
 	success = true;
