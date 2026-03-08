@@ -15,7 +15,6 @@
 
 #define NGC_DATA_SIZE (sizeof(ngc_word_t) * NGC_UWORD_MAX)
 
-#define NGC_WORD_DEC_STR_LEN 6 // "-32767"
 #define NGC_UWORD_DEC_STR_LEN 5 // "65536"
 
 #define PATH_STDIN "-"
@@ -30,51 +29,60 @@
 #define US_PER_SEC 1000000
 #define NS_PER_US 1000
 
-#define KEYIN_PER_SEC 12
-#define SCRDRAW_PER_SEC 12
-#define US_PER_KEYIN (US_PER_SEC / KEYIN_PER_SEC)
-#define US_PER_SCRDRAW (US_PER_SEC / SCRDRAW_PER_SEC)
+#define TERM_IN_PER_SEC 20
+#define TERM_OUT_PER_SEC 10
+#define US_PER_TERM_IN (US_PER_SEC / TERM_IN_PER_SEC)
+#define US_PER_TERM_OUT (US_PER_SEC / TERM_OUT_PER_SEC)
 
 #define CLOCK_HZ_MIN 1
 #define CLOCK_HZ_MAX 10000
 #define CLOCK_HZ_MULTI 10
 
+#define WIN_ROW_GAP 0
+#define WIN_COL_GAP 1
+#define WIN_ROW_PADDING 1
+#define WIN_COL_PADDING 2
+#define WIN_ROWS(lines) (lines + (WIN_ROW_PADDING * 2))
+#define WIN_COLS(cols) (cols + (WIN_COL_PADDING * 2))
+
 #define WIN_GROUP_1_X 0
-#define WIN_GROUP_1_COLS 24
-#define WIN_GROUP_2_X (WIN_GROUP_1_X + WIN_GROUP_1_COLS + 1)
-#define WIN_GROUP_2_COLS 27
-#define WIN_GROUP_3_X (WIN_GROUP_2_X + WIN_GROUP_2_COLS + 1)
-#define WIN_GROUP_3_COLS 17
+#define WIN_GROUP_1_COLS WIN_COLS(20)
+#define WIN_GROUP_2_X (WIN_GROUP_1_X + WIN_GROUP_1_COLS + WIN_COL_GAP)
+#define WIN_GROUP_2_COLS WIN_COLS(23)
+#define WIN_GROUP_3_X (WIN_GROUP_2_X + WIN_GROUP_2_COLS + WIN_COL_GAP)
+#define WIN_GROUP_3_COLS WIN_COLS(13)
 
 #define WIN_CLOCK_Y 0
-#define WIN_CLOCK_ROWS (WIN_ROWS(2))
-#define WIN_REG_Y (WIN_CLOCK_Y + WIN_CLOCK_ROWS)
-#define WIN_REG_ROWS (WIN_ROWS(3))
-#define WIN_INTR_Y (WIN_REG_Y + WIN_REG_ROWS)
-#define WIN_INTR_ROWS (WIN_ROWS(1))
+#define WIN_CLOCK_ROWS WIN_ROWS(2)
+#define WIN_REG_Y (WIN_CLOCK_Y + WIN_CLOCK_ROWS + WIN_ROW_GAP)
+#define WIN_REG_ROWS WIN_ROWS(3)
+#define WIN_INTR_Y (WIN_REG_Y + WIN_REG_ROWS + WIN_ROW_GAP)
+#define WIN_INTR_ROWS WIN_ROWS(1)
 #define WIN_RAM_Y 0
-#define WIN_RAM_ROWS (WIN_ROWS(WIN_RAM_ITEMS))
+#define WIN_RAM_ROWS WIN_ROWS(WIN_RAM_LINES)
 #define WIN_ROM_Y 0
-#define WIN_ROM_ROWS (WIN_ROWS(WIN_ROM_ITEMS))
-
-#define WIN_ROWS(items) (items + 2)
+#define WIN_ROM_ROWS WIN_ROWS(WIN_ROM_LINES)
 
 #define WINS_TOTAL_ROWS WIN_RAM_ROWS
-#define WINS_TOTAL_COLS (1 + WIN_GROUP_1_COLS + 2 + WIN_GROUP_2_COLS + 2 + WIN_GROUP_3_COLS + 1)
+#define WINS_TOTAL_COLS (WIN_GROUP_1_COLS + WIN_COL_GAP + WIN_GROUP_2_COLS + WIN_COL_GAP + WIN_GROUP_3_COLS)
 
-#define WINS_OFFSET_Y(scr_rows) ((scr_rows - WINS_TOTAL_ROWS) / 2)
-#define WINS_OFFSET_X(scr_cols) ((scr_cols - WINS_TOTAL_COLS) / 2)
+#define WINS_OFFSET_Y(rows) ((rows - WINS_TOTAL_ROWS) / 2)
+#define WINS_OFFSET_X(cols) ((cols - WINS_TOTAL_COLS) / 2)
 
-#define WIN_RAM_ITEMS 10
-#define WIN_ROM_ITEMS 10
+#define WIN_RAM_LINES 10
+#define WIN_ROM_LINES 10
 
 #define MEM_OFFSET_IND(ind, size) ((ind / size) * size)
 
 struct term {
-	FILE* tty_fp;
+	SCREEN* scr;
+	WINDOW* win;
+	FILE* in_fp;
+	int rows;
+	int cols;
 };
 
-struct result_wins {
+struct display_wins {
 	WINDOW* clock;
 	WINDOW* registers;
 	WINDOW* internal;
@@ -109,48 +117,95 @@ static void sleep_us(const long long us)
 	nanosleep(&time, NULL);
 }
 
-static bool term_init(struct term* term, const char tty_path[])
+static bool term_init(struct term* term, const char in_path[])
 {
-	FILE* tty_fp = fopen(tty_path, "r");
-	if (!tty_fp)
+	if (!term)
+		return false;
+
+	term->in_fp = fopen(in_path, "r");
+	if (!term->in_fp)
 		goto error;
 
-	if (!isatty(fileno(tty_fp)))
+	if (!isatty(fileno(term->in_fp)))
 		goto error;
 
 	char* term_env = getenv("TERM");
 	if (!term_env)
 		goto error;
 
-	term->tty_fp = tty_fp;
-	newterm(term_env, stdout, tty_fp);
+	term->scr = newterm(term_env, stdout, term->in_fp);
+	if (!term->scr)
+		goto error;
+
+	term->win = stdscr;
 
 	cbreak();
 	noecho();
-	keypad(stdscr, TRUE);
-	nodelay(stdscr, TRUE);
+	nodelay(term->win, TRUE);
+	keypad(term->win, TRUE);
 	curs_set(0);
+
+	int term_rows, term_cols;
+	getmaxyx(term->win, term_rows, term_cols);
+
+	term->rows = term_rows;
+	term->cols = term_cols;
 
 	return true;
 
 	error:
-	if (tty_fp) fclose(tty_fp);
+
+	term->scr = NULL;
+	term->win = NULL;
+
+	if (term->in_fp) fclose(term->in_fp);
+	term->in_fp = NULL;
+
 	return false;
+}
+
+static bool term_resized(struct term* term)
+{
+	if (!term)
+		return false;
+
+	int term_rows, term_cols;
+	getmaxyx(term->win, term_rows, term_cols);
+
+	if (term_rows == term->rows && term_cols == term->cols)
+		return false;
+
+	term->rows = term_rows;
+	term->cols = term_cols;
+	return true;
+}
+
+static inline int term_get_in(const struct term* term)
+{
+	return wgetch(term->win);
+}
+
+static inline void term_clear(const struct term* term)
+{
+	wclear(term->win);
+	wrefresh(term->win);
 }
 
 static void term_free(struct term* term)
 {
 	endwin();
-	if (term->tty_fp) fclose(term->tty_fp);
+
+	term->scr = NULL;
+	term->win = NULL;
+
+	if (term->in_fp) fclose(term->in_fp);
+	term->in_fp = NULL;
 }
 
 static void window_update_start(WINDOW* win)
 {
 	// Init cursor position
-	wmove(win, 1, 2);
-
-	wnoutrefresh(win);
-	doupdate();
+	wmove(win, WIN_ROW_PADDING, WIN_COL_PADDING);
 }
 
 static void window_update_finish(WINDOW* win, const char label[])
@@ -178,22 +233,16 @@ static void wprint_label(WINDOW* win, const char label[], const unsigned char la
 	}
 }
 
-static void wprint_result_val(WINDOW* win, const int y, const int x, const char label[], const unsigned char label_padding, const ngc_uword_t val)
+static void wprint_result_val(WINDOW* win, const char label[], const unsigned char label_padding, const ngc_uword_t val)
 {
-	wmove(win, y, x);
 	wprint_label(win, label, label_padding);
-
 	wprintw(win, "0x%04hX", val);
 }
 
-static void wprint_result_diff(WINDOW* win, const int y, const int x, const char label[], const unsigned char label_padding, const ngc_uword_t val_in, const ngc_uword_t val_out)
+static void wprint_result_diff(WINDOW* win, const char label[], const unsigned char label_padding, const ngc_uword_t val_in, const ngc_uword_t val_out)
 {
-	wmove(win, y, x);
-	wprint_label(win, label, label_padding);
+	wprint_result_val(win, label, label_padding, val_in);
 
-	wprintw(win, "0x%04hX", val_in);
-
-	// Append diff
 	if (val_in != val_out) {
 		wprintw(win, " -> 0x%04hX", val_out);
 		return;
@@ -203,6 +252,18 @@ static void wprint_result_diff(WINDOW* win, const int y, const int x, const char
 	wclrtoeol(win);
 }
 
+static void mvwprint_result_val(WINDOW* win, const int y, const int x, const char label[], const unsigned char label_padding, const ngc_uword_t val)
+{
+	wmove(win, y, x);
+	wprint_result_val(win, label, label_padding, val);
+}
+
+static void mvwprint_result_diff(WINDOW* win, const int y, const int x, const char label[], const unsigned char label_padding, const ngc_uword_t val_in, const ngc_uword_t val_out)
+{
+	wmove(win, y, x);
+	wprint_result_diff(win, label, label_padding, val_in, val_out);
+}
+
 static void window_clock_update(WINDOW* win, const struct ngc_clock clock)
 {
 	window_update_start(win);
@@ -210,17 +271,16 @@ static void window_clock_update(WINDOW* win, const struct ngc_clock clock)
 	int y, x;
 	getyx(win, y, x);
 
-	wmove(win, y, x);
 	wprint_label(win, "Status", 6);
 	wprintw(win, clock.enabled ? "Running" : "Paused");
 	wclrtoeol(win);
-	y++;
 
+	y++;
 	wmove(win, y, x);
+
 	wprint_label(win, "Freq", 6);
 	wprintw(win, "%hd Hz", clock.hz);
 	wclrtoeol(win);
-	y++;
 
 	window_update_finish(win, "Clock");
 }
@@ -232,14 +292,11 @@ static void window_registers_update(WINDOW* win, const struct ngc_tick_result ti
 	int y, x;
 	getyx(win, y, x);
 
-	wprint_result_diff(win, y, x, "A", 2, tick_result.a_in, tick_result.a_out);
+	mvwprint_result_diff(win, y, x, "A", 2, tick_result.a_in, tick_result.a_out);
 	y++;
-
-	wprint_result_diff(win, y, x, "D", 2, tick_result.d_in, tick_result.d_out);
+	mvwprint_result_diff(win, y, x, "D", 2, tick_result.d_in, tick_result.d_out);
 	y++;
-
-	wprint_result_diff(win, y, x, "PC", 1, tick_result.pc_in, tick_result.pc_out);
-	y++;
+	mvwprint_result_diff(win, y, x, "PC", 1, tick_result.pc_in, tick_result.pc_out);
 
 	window_update_finish(win, "Registers");
 }
@@ -248,11 +305,7 @@ static void window_internal_update(WINDOW* win, const struct ngc_tick_result tic
 {
 	window_update_start(win);
 
-	int y, x;
-	getyx(win, y, x);
-
-	wprint_result_val(win, y, x, "ALU", 3, tick_result.alu);
-	y++;
+	wprint_result_val(win, "ALU", 3, tick_result.alu);
 
 	window_update_finish(win, "Internal");
 }
@@ -265,21 +318,20 @@ static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_res
 	getyx(win, y, x);
 
 	// Print addresses
-	for (size_t ind = MEM_OFFSET_IND(tick_result.a_in, WIN_RAM_ITEMS); ind < (size_t)tick_result.a_in + WIN_RAM_ITEMS && ind <= NGC_UWORD_MAX; ind++, y++) {
+	for (size_t ind = MEM_OFFSET_IND((size_t)tick_result.a_in, WIN_RAM_LINES); ind < (size_t)tick_result.a_in + WIN_RAM_LINES && ind <= NGC_UWORD_MAX; ind++, y++) {
 		char label[NGC_UWORD_DEC_STR_LEN + 1] = { 0 };
-		sprintf(label, "%ld", ind);
+		sprintf(label, "%zd", ind);
 
-		bool highlight = ind == (size_t)tick_result.a_in;
-		ngc_word_t val_in = highlight ? tick_result.aa_in : ram->data[ind];
-		ngc_word_t val_out = highlight ? tick_result.aa_out : ram->data[ind];
+		wmove(win, y, x);
 
-		if (highlight)
+		if (ind == (size_t)tick_result.a_in) {
 			wattron(win, A_REVERSE);
-
-		wprint_result_diff(win, y, x, label, NGC_WORD_DEC_STR_LEN, val_in, val_out);
-
-		if (highlight)
+			mvwprint_result_diff(win, y, x, label, NGC_UWORD_DEC_STR_LEN, tick_result.aa_in, tick_result.aa_out);
 			wattroff(win, A_REVERSE);
+		} else {
+			mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, ram->data[ind]);
+			wclrtoeol(win); // Clear any potential previous diffs
+		}
 	}
 
 	window_update_finish(win, "RAM [A: *A]");
@@ -293,16 +345,16 @@ static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_res
 	getyx(win, y, x);
 
 	// Print addresses
-	for (size_t ind = MEM_OFFSET_IND(tick_result.pc_in, WIN_ROM_ITEMS); ind < (size_t)tick_result.pc_in + WIN_ROM_ITEMS && ind <= NGC_UWORD_MAX; ind++, y++) {
+	for (size_t ind = MEM_OFFSET_IND((size_t)tick_result.pc_in, WIN_ROM_LINES); ind < (size_t)tick_result.pc_in + WIN_ROM_LINES && ind <= NGC_UWORD_MAX; ind++, y++) {
 		char label[NGC_UWORD_DEC_STR_LEN + 1] = { 0 };
-		sprintf(label, "%ld", ind);
+		sprintf(label, "%zd", ind);
 
 		bool highlight = ind == (size_t)tick_result.pc_in;
 
 		if (highlight)
 			wattron(win, A_REVERSE);
 
-		wprint_result_val(win, y, x, label, NGC_WORD_DEC_STR_LEN, rom->data[ind]);
+		mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, rom->data[ind]);
 
 		if (highlight)
 			wattroff(win, A_REVERSE);
@@ -311,22 +363,46 @@ static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_res
 	window_update_finish(win, "ROM [PC: In]");
 }
 
-static void windows_init(struct result_wins* wins, const int scr_rows, const int scr_cols)
+static bool windows_init(struct display_wins* wins, const struct term* term)
 {
-	if (!wins)
-		return;
+	if (!wins || !term)
+		return false;
 
-	int y_offset = WINS_OFFSET_Y(scr_rows);
-	int x_offset = WINS_OFFSET_X(scr_cols);
+	int y_offset = WINS_OFFSET_Y(term->rows);
+	int x_offset = WINS_OFFSET_X(term->cols);
 
-	wins->clock = newwin(WIN_CLOCK_ROWS, WIN_GROUP_1_COLS, WIN_CLOCK_Y + y_offset, WIN_GROUP_1_X + x_offset);
-	wins->registers = newwin(WIN_REG_ROWS, WIN_GROUP_1_COLS, WIN_REG_Y + y_offset, WIN_GROUP_1_X + x_offset);
-	wins->internal = newwin(WIN_INTR_ROWS, WIN_GROUP_1_COLS, WIN_INTR_Y + y_offset, WIN_GROUP_1_X + x_offset);
-	wins->ram = newwin(WIN_RAM_ROWS, WIN_GROUP_2_COLS, WIN_RAM_Y + y_offset, WIN_GROUP_2_X + x_offset);
-	wins->rom = newwin(WIN_ROM_ROWS, WIN_GROUP_3_COLS, WIN_ROM_Y + y_offset, WIN_GROUP_3_X + x_offset);
+	wins->clock = derwin(term->win, WIN_CLOCK_ROWS, WIN_GROUP_1_COLS, WIN_CLOCK_Y + y_offset, WIN_GROUP_1_X + x_offset);
+	if (!wins->clock)
+		goto error;
+
+	wins->registers = derwin(term->win, WIN_REG_ROWS, WIN_GROUP_1_COLS, WIN_REG_Y + y_offset, WIN_GROUP_1_X + x_offset);
+	if (!wins->registers)
+		goto error;
+
+	wins->internal = derwin(term->win, WIN_INTR_ROWS, WIN_GROUP_1_COLS, WIN_INTR_Y + y_offset, WIN_GROUP_1_X + x_offset);
+	if (!wins->internal)
+		goto error;
+
+	wins->ram = derwin(term->win, WIN_RAM_ROWS, WIN_GROUP_2_COLS, WIN_RAM_Y + y_offset, WIN_GROUP_2_X + x_offset);
+	if (!wins->ram)
+		goto error;
+
+	wins->rom = derwin(term->win, WIN_ROM_ROWS, WIN_GROUP_3_COLS, WIN_ROM_Y + y_offset, WIN_GROUP_3_X + x_offset);
+	if (!wins->rom)
+		goto error;
+
+	return true;
+
+	error:
+	if (wins->clock) delwin(wins->clock);
+	if (wins->registers) delwin(wins->registers);
+	if (wins->internal) delwin(wins->internal);
+	if (wins->ram) delwin(wins->ram);
+	if (wins->rom) delwin(wins->rom);
+	return false;
 }
 
-static void windows_update(const struct result_wins wins, const struct ngc_clock clock, const struct ngc_tick_result tick_result, const struct ngc_mem* mem)
+static void windows_update(const struct display_wins wins, const struct ngc_clock clock, const struct ngc_tick_result tick_result, const struct ngc_mem* mem)
 {
 	if (!mem)
 		return;
@@ -338,13 +414,13 @@ static void windows_update(const struct result_wins wins, const struct ngc_clock
 	window_rom_update(wins.rom, tick_result, &mem->rom);
 }
 
-static void windows_recenter(struct result_wins* wins, const int scr_rows, const int scr_cols)
+static void windows_recenter(struct display_wins* wins, const int term_rows, const int term_cols)
 {
 	if (!wins)
 		return;
 
-	int y_offset = WINS_OFFSET_Y(scr_rows);
-	int x_offset = WINS_OFFSET_X(scr_cols);
+	int y_offset = WINS_OFFSET_Y(term_rows);
+	int x_offset = WINS_OFFSET_X(term_cols);
 
 	mvwin(wins->clock, WIN_CLOCK_Y + y_offset, WIN_GROUP_1_X + x_offset);
 	mvwin(wins->registers, WIN_REG_Y + y_offset, WIN_GROUP_1_X + x_offset);
@@ -353,7 +429,7 @@ static void windows_recenter(struct result_wins* wins, const int scr_rows, const
 	mvwin(wins->rom, WIN_ROM_Y + y_offset, WIN_GROUP_3_X + x_offset);
 }
 
-static void windows_free(struct result_wins* wins)
+static void windows_free(struct display_wins* wins)
 {
 	if (!wins)
 		return;
@@ -506,13 +582,14 @@ int main(int argc, char* argv[])
 	}
 
 	// Init display windows
-	struct result_wins windows;
-	int scr_rows, scr_cols;
-	getmaxyx(stdscr, scr_rows, scr_cols);
-	windows_init(&windows, scr_rows, scr_cols);
-	windows_set = true;
+	struct display_wins windows = { 0 };
+	windows_set = windows_init(&windows, &term);
+	if (!windows_set) {
+		print_err("Failed to init display windows");
+		goto exit;
+	}
 
-	long long last_keyin_epoch_us = 0, last_tick_epoch_us = 0, last_scrdraw_epoch_us = 0;
+	long long last_term_in_epoch_us = 0, last_tick_epoch_us = 0, last_term_out_epoch_us = 0;
 	struct ngc_tick_result tick_result;
 
 	// Update emulation until end of ROM reached
@@ -520,8 +597,8 @@ int main(int argc, char* argv[])
 		bool reset = false, step = false;
 
 		// Read keyboard input if due
-		if (get_epoch_us() - last_keyin_epoch_us >= US_PER_KEYIN) {
-			switch (getch()) {
+		if (get_epoch_us() - last_term_in_epoch_us >= US_PER_TERM_IN) {
+			switch (term_get_in(&term)) {
 				case 'q':
 				case 'Q':
 				case 27: // Esc
@@ -553,7 +630,7 @@ int main(int argc, char* argv[])
 					break;
 			}
 
-			last_keyin_epoch_us = get_epoch_us();
+			last_term_in_epoch_us = get_epoch_us();
 		}
 
 		long long us_per_tick = US_PER_SEC / clock.hz;
@@ -565,27 +642,21 @@ int main(int argc, char* argv[])
 		}
 
 		// Draw display windows if due
-		if (reset || get_epoch_us() - last_scrdraw_epoch_us >= US_PER_SCRDRAW) {
-			// Re-center display windows on terminal resize
-			int new_scr_rows, new_scr_cols;
-			getmaxyx(stdscr, new_scr_rows, new_scr_cols);
-			if (new_scr_rows != scr_rows || new_scr_cols != scr_cols) {
-				scr_rows = new_scr_rows;
-				scr_cols = new_scr_cols;
-				windows_recenter(&windows, scr_rows, scr_cols);
-				clear();
-				refresh();
+		if (reset || get_epoch_us() - last_term_out_epoch_us >= US_PER_TERM_OUT) {
+			if (term_resized(&term)) {
+				windows_recenter(&windows, term.rows, term.cols);
+				term_clear(&term);
 			}
 
 			windows_update(windows, clock, tick_result, &mem);
-			last_scrdraw_epoch_us = get_epoch_us();
+			last_term_out_epoch_us = get_epoch_us();
 		}
 
 		// Get times events are next due
 		long long event_epochs_us[3] = {
-			last_keyin_epoch_us + US_PER_KEYIN,
+			last_term_in_epoch_us + US_PER_TERM_IN,
 			last_tick_epoch_us + us_per_tick,
-			last_scrdraw_epoch_us + US_PER_SCRDRAW
+			last_term_out_epoch_us + US_PER_TERM_OUT
 		};
 
 		// Get next time an event is due
