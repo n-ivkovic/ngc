@@ -6,10 +6,8 @@
 #include <curses.h>
 #include <inttypes.h>
 #include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -72,7 +70,7 @@
 #define WIN_RAM_LINES 10
 #define WIN_ROM_LINES 10
 
-#define MEM_OFFSET_IND(ind, size) ((ind / size) * size)
+#define MEM_ADDR_INIT(addr, lines) ((addr / lines) * lines)
 
 struct term {
 	SCREEN* scr;
@@ -296,7 +294,7 @@ static void window_registers_update(WINDOW* win, const struct ngc_tick_result ti
 	y++;
 	mvwprint_result_diff(win, y, x, "D", 2, tick_result.d_in, tick_result.d_out);
 	y++;
-	mvwprint_result_diff(win, y, x, "PC", 1, tick_result.pc_in, tick_result.pc_out);
+	mvwprint_result_diff(win, y, x, "PC", 2, tick_result.pc_in, tick_result.pc_out);
 
 	window_update_finish(win, "Registers");
 }
@@ -317,19 +315,29 @@ static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_res
 	int y, x;
 	getyx(win, y, x);
 
-	// Print addresses
-	for (size_t ind = MEM_OFFSET_IND((size_t)tick_result.a_in, WIN_RAM_LINES); ind < (size_t)tick_result.a_in + WIN_RAM_LINES && ind <= NGC_UWORD_MAX; ind++, y++) {
+	// Print portion of RAM around address given in A register
+	size_t addr_target = (size_t)(ngc_uword_t)tick_result.a_in;
+	size_t addr_start = MEM_ADDR_INIT(addr_target, WIN_RAM_LINES);
+	for (size_t addr = addr_start; addr <= addr_start + WIN_RAM_LINES; addr++, y++) {
+		// Clear line if address exceeds RAM size
+		if (addr > sizeof(ram->data) / sizeof(ram->data[0])) {
+			wmove(win, y, x);
+			wclrtoeol(win);
+			continue;
+		}
+
+		// Use address as label
 		char label[NGC_UWORD_DEC_STR_LEN + 1] = { 0 };
-		sprintf(label, "%zd", ind);
+		sprintf(label, "%zu", addr);
 
-		wmove(win, y, x);
-
-		if (ind == (size_t)tick_result.a_in) {
+		// Print diff of value at address between ticks
+		if (addr == addr_target) {
 			wattron(win, A_REVERSE);
 			mvwprint_result_diff(win, y, x, label, NGC_UWORD_DEC_STR_LEN, tick_result.aa_in, tick_result.aa_out);
 			wattroff(win, A_REVERSE);
+		// Print value at address
 		} else {
-			mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, ram->data[ind]);
+			mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, ram->data[addr]);
 			wclrtoeol(win); // Clear any potential previous diffs
 		}
 	}
@@ -344,19 +352,28 @@ static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_res
 	int y, x;
 	getyx(win, y, x);
 
-	// Print addresses
-	for (size_t ind = MEM_OFFSET_IND((size_t)tick_result.pc_in, WIN_ROM_LINES); ind < (size_t)tick_result.pc_in + WIN_ROM_LINES && ind <= NGC_UWORD_MAX; ind++, y++) {
+	// Print portion of ROM around address given in PC register
+	size_t addr_target = (size_t)(ngc_uword_t)tick_result.pc_in;
+	size_t addr_start = MEM_ADDR_INIT(addr_target, WIN_ROM_LINES);
+	for (size_t addr = addr_start; addr <= addr_start + WIN_ROM_LINES; addr++, y++) {
+		// Clear line if address exceeds ROM size
+		if (addr > sizeof(rom->data) / sizeof(rom->data[0])) {
+			wmove(win, y, x);
+			wclrtoeol(win);
+			continue;
+		}
+
+		// Use address as label
 		char label[NGC_UWORD_DEC_STR_LEN + 1] = { 0 };
-		sprintf(label, "%zd", ind);
+		sprintf(label, "%zu", addr);
 
-		bool highlight = ind == (size_t)tick_result.pc_in;
-
-		if (highlight)
+		if (addr == addr_target)
 			wattron(win, A_REVERSE);
 
-		mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, rom->data[ind]);
+		// Print value at address
+		mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, rom->data[addr]);
 
-		if (highlight)
+		if (addr == addr_target)
 			wattroff(win, A_REVERSE);
 	}
 
