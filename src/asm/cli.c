@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-asm v0.6.0%s", EOL);
+				printf("ngc-asm v0.6.1%s", EOL);
 				return 0;
 			case ':':
 				print_err("Option -%c requires an argument", optopt);
@@ -78,11 +78,13 @@ int main(int argc, char* argv[])
 		in_path = argv[optind];
 	}
 
-	// Open input file
 	bool in_stdin = !in_path || strncmp(in_path, PATH_STDIN, strlen(PATH_STDIN) + 1) == 0;
+	char* in_name = in_stdin ? PATH_STDIN : in_path;
+
+	// Open input file
 	FILE* in_fp = in_stdin ? stdin : fopen(in_path, "r");
 	if (!in_fp) {
-		print_file_err(in_stdin ? "stdin" : in_path, "Failed to open file");
+		print_file_err(in_name, "Failed to open file");
 		return ERRVAL_FILE;
 	}
 
@@ -98,7 +100,7 @@ int main(int argc, char* argv[])
 
 	// Exit if any error occurred when parsing
 	if (parse_result > 0) {
-		print_err_err(in_path, parse_result, err);
+		print_err_err(in_name, parse_result, err);
 		parsed_file_empty(&file);
 		return err.val;
 	}
@@ -114,21 +116,23 @@ int main(int argc, char* argv[])
 	// Exit if any error occurred when assembling
 	if (assemble_result > 0) {
 		dynarr_empty(&instructions);
-		print_err_err(in_path, assemble_result, err);
+		print_err_err(in_name, assemble_result, err);
 		return err.val;
 	}
 
-	// Open output file
 	bool out_stdout = !out_path || strncmp(out_path, PATH_STDOUT, strlen(PATH_STDOUT) + 1) == 0;
+	char* out_name = out_stdout ? PATH_STDOUT : out_path;
+
+	// Open output file
 	FILE* out_fp = out_stdout ? stdout : fopen(out_path, "wb");
 	if (!out_fp) {
 		dynarr_empty(&instructions);
-		print_file_err(out_stdout ? "stdout" : out_path, "Failed to open file");
+		print_file_err(out_name, "Failed to open file");
 		return ERRVAL_FILE;
 	}
 
 	// Output assembled instructions
-	fwrite((ngc_word_t*)instructions.vals, instructions.val_size, instructions.len, out_fp);
+	fwrite(instructions.vals, instructions.val_size, instructions.len, out_fp);
 
 	fclose(out_fp);
 	dynarr_empty(&instructions);
