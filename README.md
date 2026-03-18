@@ -52,7 +52,7 @@ The assembler supports a superset of the original NandGame assembly language.
 The main new language feature supported is macro definitions.
 
 The assembler intends to be backwards-compatible with the original NandGame assembly language.
-Any unintended differences to the original NandGame should be considered a bug.
+Any unknown differences from the original NandGame should be considered a bug.
 
 #### Macro definitions
 
@@ -77,6 +77,23 @@ The table below lists differences in language features between usage within regu
 | `%MACRO` definitions  | Allowed                                      | Forbidden                                                |
 
 Like `DEFINE` and `LABEL` statements, a macro can be referenced both before and after its definition.
+
+#### Known differences from the original NandGame
+
+If the key used in a `DEFINE` or `LABEL` statement is also a valid number, when referenced:
+
+- The original NandGame assembler will use the `DEFINE`/`LABEL` value rather than the numerical value.
+- The `ngc-asm` assembler will use the numerical value rather than the `DEFINE`/`LABEL` value.
+
+E.g:
+
+```
+DEFINE xabc 123
+A = xabc
+```
+
+- The original NandGame assembler will set `A` to 123.
+- The `ngc-asm` assembler will set `A` to 0xABC (2989).
 
 ### Wishlist
 

@@ -1,3 +1,9 @@
+DEFINE xaaa 12345
+A = xaaa
+
+LABEL xbbb
+A = xbbb
+
 DEFINE shared.define_macro 12345
 A = shared.define_macro
 shared.define_macro
