@@ -26,9 +26,10 @@ enum parse_inst_alu_result {
  * Get whether token is a valid key.
  *
  * @param tok Token to validate.
+ * @param len Length of token to validate.
  * @returns Whether token can be a valid key.
  */
-static bool key_valid(const char* tok)
+static bool key_valid(const char* tok, const size_t len)
 {
 	// Handle NULL pointer
 	if (!tok)
@@ -38,18 +39,16 @@ static bool key_valid(const char* tok)
 	if (!isalpha(tok[0]) && tok[0] != '.')
 		return false;
 
-	size_t tok_len = strlen(tok);
-
 	// Key cannot exceed max len
-	if (tok_len > PARSED_KEY_LEN_MAX)
+	if (len > PARSED_KEY_LEN_MAX)
 		return false;
 
 	// Key cannot be A or D (lower case allowed)
-	if (tok_len == 1 && (tok[0] == 'A' || tok[0] == 'D'))
+	if (len == 1 && (tok[0] == 'A' || tok[0] == 'D'))
 		return false;
 
 	// Key must only consist of alpha chars (A-Z, a-z), digit chars (0-9), underscores (_), and periods (.)
-	for (size_t ind = 1; ind < tok_len; ind++) {
+	for (size_t ind = 1; ind < len; ind++) {
 		if (!isalnum(tok[ind]) && tok[ind] != '_' && tok[ind] != '.')
 			return false;
 	}
@@ -152,19 +151,19 @@ static int is_uscore(int ch) { return ch == '_'; }
  * Parse number, between 0 and NGC_WORD_MAX (0x7FFF) inclusive.
  *
  * @param tok Token to parse.
+ * @param len Length of token to parse.
  * @returns Parsed number. -1 if error.
  */
-static long parse_number(char* tok)
+static long parse_number(char* tok, size_t len)
 {
-	size_t tok_len = strlen(tok);
-	if (tok_len < 1)
+	if (len < 1)
 		return -1;
 
 	size_t value_ind = 0;
 	int value_base = 10;
 
 	// Check if number has prefix indicating a different base
-	if (tok_len >= 2) {
+	if (len >= 2) {
 		// Determine index of main prefix char
 		size_t prefix_ind = 0;
 		if (tok[0] == '0')
@@ -186,11 +185,11 @@ static long parse_number(char* tok)
 	}
 
 	char* tok_in = tok;
-	char tok_fmt[STR_CHARS(tok_len)];
+	char tok_fmt[STR_CHARS(len)];
 
 	// Format prefixed numbers without prefix and underscores
 	if (value_ind > 0) {
-		if (!str_rm(tok_fmt, &tok[value_ind], tok_len, is_uscore))
+		if (!str_rm(tok_fmt, &tok[value_ind], len, is_uscore))
 			return -1;
 
 		tok_in = tok_fmt;
@@ -216,10 +215,11 @@ static long parse_number(char* tok)
  * @param err Struct to store error.
  * @param key String to copy key result to.
  * @param tok Token to parse.
+ * @param tok_len Length of token to parse.
  * @param msg Error message suffix.
  * @returns Whether key was valid and parsed successfully.
  */
-static bool parse_key(struct error* err, char* key, const char* tok, const char* msg)
+static bool parse_key(struct error* err, char* key, const char* tok, const size_t tok_len, const char* msg)
 {
 	// Validate token exists
 	if (!tok) {
@@ -228,16 +228,15 @@ static bool parse_key(struct error* err, char* key, const char* tok, const char*
 	}
 
 	// Validate token can be a key
-	if (!key_valid(tok)) {
+	if (!key_valid(tok, tok_len)) {
 		error_init(err, ERRVAL_SYNTAX, "Invalid key given in %s: '%s'", msg, tok);
 		return false;
 	}
 
-	size_t key_len = strlen(tok);
-	assert(key_len <= PARSED_KEY_LEN_MAX);
+	assert(tok_len <= PARSED_KEY_LEN_MAX);
 
 	// Copy token to key result
-	if (!str_copy(key, tok, key_len)) {
+	if (!str_copy(key, tok, tok_len)) {
 		error_init(err, ERRVAL_FAILURE, "Failed to copy string");
 		return false;
 	}
@@ -265,6 +264,7 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 	// Parse one token at a time
 	for (size_t tok_ind = 0; tok_ind <= TOKS_DEFINE_LEN; tok_ind++) {
 		char* tok = dynarr_get(line_toks, tok_ind);
+		size_t tok_len = (tok) ? strlen(tok) : 0;
 
 		switch (tok_ind) {
 			// DEFINE keyword - verified outside this function
@@ -274,7 +274,7 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 			// Key
 			case 1:
 				// Validate key
-				if (!parse_key(err, result.key, tok, "DEFINE statement"))
+				if (!parse_key(err, result.key, tok, tok_len, "DEFINE statement"))
 					return false;
 
 				// Validate no data definition with same key already exists
@@ -295,7 +295,7 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 				}
 
 				// Parse + set token as number
-				long parsed_number = parse_number(tok);
+				long parsed_number = parse_number(tok, tok_len);
 				if (parsed_number < 0) {
 					error_init(err, ERRVAL_SYNTAX, "Invalid value given in DEFINE statement: '%s'", tok);
 					return false;
@@ -304,7 +304,7 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 				result.val = parsed_number;
 				break;
 
-			// Invalid extranious token
+			// Invalid extraneous token
 			default:
 				if (tok) {
 					error_init(err, ERRVAL_SYNTAX, "Invalid value given in DEFINE statement: '%s'", tok);
@@ -342,6 +342,7 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 
 	for (size_t tok_ind = 0; tok_ind <= TOKS_LABEL_LEN; tok_ind++) {
 		char* tok = dynarr_get(line_toks, tok_ind);
+		size_t tok_len = (tok) ? strlen(tok) : 0;
 
 		switch (tok_ind) {
 			// LABEL keyword - verified outside this function
@@ -350,8 +351,12 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 
 			// Key
 			case 1:
+				// Valid extraneous colon char
+				if (tok_len > 1 && tok[tok_len - 1] == ':')
+					tok_len--;
+
 				// Validate key
-				if (!parse_key(err, result.key, tok, "LABEL statement"))
+				if (!parse_key(err, result.key, tok, tok_len, "LABEL statement"))
 					return false;
 
 				// Validate no data definition with same key already exists
@@ -363,7 +368,14 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 
 				break;
 
-			// Invalid extranious token
+			case 2:
+				// Valid extraneous colon char
+				if (tok_len == 1 && tok[0] == ':')
+					break;
+
+				// Fall through
+
+			// Invalid extraneous token
 			default:
 				if (tok) {
 					error_init(err, ERRVAL_SYNTAX, "Invalid value given in LABEL statement: '%s'", tok);
@@ -404,6 +416,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 
 	for (size_t tok_ind = 0; tok_ind < line_toks.len || tok_ind < TOKS_DEF_MACRO_MIN; tok_ind++) {
 		char* tok = dynarr_get(line_toks, tok_ind);
+		size_t tok_len = (tok) ? strlen(tok) : 0;
 
 		switch (tok_ind) {
 			// %MACRO keyword - verified outside this function
@@ -413,7 +426,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 			// Key
 			case 1:
 				// Validate key
-				if (!parse_key(err, result.key, tok, "%MACRO statement"))
+				if (!parse_key(err, result.key, tok, tok_len, "%MACRO statement"))
 					goto error;
 
 				// Validate no macro definition with same key already exists
@@ -433,7 +446,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 				}
 
 				char param_key[PARSED_KEY_CHARS] = { 0 };
-				if (!parse_key(err, param_key, tok, "%MACRO statement"))
+				if (!parse_key(err, param_key, tok, tok_len, "%MACRO statement"))
 					goto error;
 
 				// Validate parameter key does not already exist
@@ -489,11 +502,12 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 
 	for (size_t tok_ind = 0; tok_ind < line_toks.len || tok_ind < TOKS_REF_MACRO_MIN; tok_ind++) {
 		char* tok = dynarr_get(line_toks, tok_ind);
+		size_t tok_len = (tok) ? strlen(tok) : 0;
 
 		switch (tok_ind) {
 			// Key
 			case 0:
-				if (!parse_key(err, result.key, tok, "macro reference"))
+				if (!parse_key(err, result.key, tok, tok_len, "macro reference"))
 					goto error;
 
 				break;
@@ -501,12 +515,12 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 			// Parameters
 			default:
 				if (!(features & LANG_FEAT_DEF_MACRO_PARAMS)) {
-					error_init(err, ERRVAL_SYNTAX, "Invalid value given after macro reference: '%s'", tok);
+					error_init(err, ERRVAL_SYNTAX, "Invalid value given in macro reference: '%s'", tok);
 					goto error;
 				}
 
 				// Try parse parameter as number
-				long parsed_number = parse_number(tok);
+				long parsed_number = parse_number(tok, tok_len);
 				if (parsed_number >= 0) {
 					// Push parsed parameter result to array
 					if (!refs_macro_params_push(err, &result.params, PARAM_CONST_E, (size_t)parsed_number))
@@ -522,7 +536,7 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 
 				// Parse parameter as data reference
 				char ref_data_key[PARSED_KEY_CHARS] = { 0 };
-				if (!parse_key(err, ref_data_key, tok, "macro reference"))
+				if (!parse_key(err, ref_data_key, tok, tok_len, "macro reference"))
 					goto error;
 
 				// Push data reference result
@@ -619,7 +633,7 @@ static long parse_inst_alu_targets(const char* tok)
 			parsed_len += TOK_TARGET_SEP_LEN;
 	}
 
-	// Invalid - extranious separator
+	// Invalid - extraneous separator
 	if (parsed_len < tok_len)
 		return -1;
 
@@ -886,8 +900,10 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 		return false;
 	}
 
+	size_t data_str_len = strlen(data_str);
+
 	// Try parse data value as number
-	long parsed_number = parse_number(data_str);
+	long parsed_number = parse_number(data_str, data_str_len);
 	if (parsed_number >= 0) {
 		// Push line result
 		if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)parsed_number))
@@ -897,16 +913,14 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 	}
 
 	// Validate data value can be a key
-	if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(data_str)) {
+	if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(data_str, data_str_len)) {
 		error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", data_str);
 		return false;
 	}
 
-	size_t data_key_len = sizeof(data_str);
-
 	// Ensure key is null-terminated
 	char data_key[PARSED_KEY_CHARS] = { 0 };
-	if (!str_copy(data_key, data_str, data_key_len)) {
+	if (!str_copy(data_key, data_str, data_str_len)) {
 		error_init(err, ERRVAL_FAILURE, "Failed to copy string");
 		return false;
 	}
