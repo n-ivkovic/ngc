@@ -14,19 +14,6 @@ A = mixed
 A = Mixed
 A = mIxEd
 
-LABEL X0
-A = X0
-LABEL X00
-A = X00
-LABEL X9
-A = X9
-LABEL X99
-A = X99
-LABEL X_
-A = X_
-LABEL X__
-A = X__
-
 LABEL .
 A = .
 LABEL ..

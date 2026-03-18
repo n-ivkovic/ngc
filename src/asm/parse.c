@@ -156,8 +156,6 @@ static int is_uscore(int ch) { return ch == '_'; }
  */
 static long parse_number(char* tok)
 {
-	#define PREFIX_LEN 2
-
 	size_t tok_len = strlen(tok);
 	if (tok_len < 1)
 		return -1;
@@ -166,22 +164,22 @@ static long parse_number(char* tok)
 	int value_base = 10;
 
 	// Check if number has prefix indicating a different base
-	if (tok_len >= (PREFIX_LEN + 1)) {
-		// Copy prefix to new string
-		char tok_prefix[STR_CHARS(PREFIX_LEN)] = { 0 };
-		if (!str_copy(tok_prefix, tok, PREFIX_LEN))
-			return -1;
+	if (tok_len >= 2) {
+		// Determine index of main prefix char
+		size_t prefix_ind = 0;
+		if (tok[0] == '0')
+			prefix_ind++;
 
-		// Determine base from prefix
-		switch (str_ull(tok_prefix)) {
-			case 0x3058: // 0X
-			case 0x3078: // 0x
-				value_ind = PREFIX_LEN; // Numerical value begins after prefix
+		// Determine base from prefix char
+		switch (tok[prefix_ind]) {
+			case 'X':
+			case 'x':
+				value_ind = prefix_ind + 1;
 				value_base = 16;
 				break;
-			case 0x3042: // 0B
-			case 0x3062: // 0b
-				value_ind = PREFIX_LEN; // Numerical value begins after prefix
+			case 'B':
+			case 'b':
+				value_ind = prefix_ind + 1;
 				value_base = 2;
 				break;
 		}

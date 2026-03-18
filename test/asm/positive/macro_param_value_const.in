@@ -40,6 +40,55 @@ macro.2 0032767 0032767
 macro.1 12345
 macro.2 12345 12345
 
+macro.1 x0
+macro.2 x0 x0
+macro.1 x00
+macro.2 x00 x00
+macro.1 x000
+macro.2 x000 x000
+macro.1 x1
+macro.2 x1 x1
+macro.1 x01
+macro.2 x01 x01
+macro.1 x001
+macro.2 x001 x001
+macro.1 xF
+macro.2 xF xF
+macro.1 x0F
+macro.2 x0F x0F
+macro.1 x00F
+macro.2 x00F x00F
+macro.1 x10
+macro.2 x10 x10
+macro.1 x010
+macro.2 x010 x010
+macro.1 x0010
+macro.2 x0010 x0010
+macro.1 x7FFF
+macro.2 x7FFF x7FFF
+macro.1 x07FFF
+macro.2 x07FFF x07FFF
+macro.1 x007FFF
+macro.2 x007FFF x007FFF
+macro.1 X1ABC
+macro.2 X1ABC X1ABC
+macro.1 x1abc
+macro.2 x1abc x1abc
+macro.1 X1aBc
+macro.2 X1aBc X1aBc
+macro.1 x_1ABC
+macro.2 x_1ABC x_1ABC
+macro.1 x1A_BC
+macro.2 x1A_BC x1A_BC
+macro.1 x1ABC_
+macro.2 x1ABC_ x1ABC_
+macro.1 x__1A__BC__
+macro.2 x__1A__BC__ x__1A__BC__
+macro.1 x_
+macro.2 x_ x_
+macro.1 x__
+macro.2 x__ x__
+
 macro.1 0x0
 macro.2 0x0 0x0
 macro.1 0x00
@@ -86,6 +135,49 @@ macro.1 0x__1A__BC__
 macro.2 0x__1A__BC__ 0x__1A__BC__
 macro.1 0x_
 macro.2 0x_ 0x_
+macro.1 0x__
+macro.2 0x__ 0x__
+
+macro.1 b0
+macro.2 b0 b0
+macro.1 b00
+macro.2 b00 b00
+macro.1 b000
+macro.2 b000 b000
+macro.1 b1
+macro.2 b1 b1
+macro.1 b01
+macro.2 b01 b01
+macro.1 b001
+macro.2 b001 b001
+macro.1 b10
+macro.2 b10 b10
+macro.1 b010
+macro.2 b010 b010
+macro.1 b0010
+macro.2 b0010 b0010
+macro.1 b0111111111111111
+macro.2 b0111111111111111 b0111111111111111
+macro.1 b00111111111111111
+macro.2 b00111111111111111 b00111111111111111
+macro.1 b000111111111111111
+macro.2 b000111111111111111 b000111111111111111
+macro.1 B11100100
+macro.2 B11100100 B11100100
+macro.1 b11100100
+macro.2 b11100100 b11100100
+macro.1 b_11100100
+macro.2 b_11100100 b_11100100
+macro.1 b1110_0100
+macro.2 b1110_0100 b1110_0100
+macro.1 b11100100_
+macro.2 b11100100_ b11100100_
+macro.1 b__1110__0100__
+macro.2 b__1110__0100__ b__1110__0100__
+macro.1 b_
+macro.2 b_ b_
+macro.1 b__
+macro.2 b__ b__
 
 macro.1 0b0
 macro.2 0b0 0b0
@@ -125,3 +217,5 @@ macro.1 0b__1110__0100__
 macro.2 0b__1110__0100__ 0b__1110__0100__
 macro.1 0b_
 macro.2 0b_ 0b_
+macro.1 0b__
+macro.2 0b__ 0b__

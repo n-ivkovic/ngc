@@ -35,25 +35,6 @@ macro.2 Mixed Mixed
 macro.1 mIxEd
 macro.2 mIxEd mIxEd
 
-LABEL X0
-macro.1 X0
-macro.2 X0 X0
-LABEL X00
-macro.1 X00
-macro.2 X00 X00
-LABEL X9
-macro.1 X9
-macro.2 X9 X9
-LABEL X99
-macro.1 X99
-macro.2 X99 X99
-LABEL X_
-macro.1 X_
-macro.2 X_ X_
-LABEL X__
-macro.1 X__
-macro.2 X__ X__
-
 LABEL .
 macro.1 .
 macro.2 . .
