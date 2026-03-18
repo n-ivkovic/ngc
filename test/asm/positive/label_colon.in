@@ -1,0 +1,4 @@
+LABEL space :
+A = space
+LABEL nospace:
+A = nospace

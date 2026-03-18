@@ -339,6 +339,7 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 	#define TOKS_LABEL_LEN 2
 
 	struct parsed_def_data result = { .type = DATA_LABEL_E, .line_num = line_num, .val = inst_num };
+	bool colon = false;
 
 	for (size_t tok_ind = 0; tok_ind <= TOKS_LABEL_LEN; tok_ind++) {
 		char* tok = dynarr_get(line_toks, tok_ind);
@@ -352,8 +353,10 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 			// Key
 			case 1:
 				// Valid extraneous colon char
-				if (tok_len > 1 && tok[tok_len - 1] == ':')
+				if (!colon && tok_len > 1 && tok[tok_len - 1] == ':') {
+					colon = true;
 					tok_len--;
+				}
 
 				// Validate key
 				if (!parse_key(err, result.key, tok, tok_len, "LABEL statement"))
@@ -370,8 +373,10 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 
 			case 2:
 				// Valid extraneous colon char
-				if (tok_len == 1 && tok[0] == ':')
+				if (!colon && tok_len == 1 && tok[0] == ':') {
+					colon = true;
 					break;
+				}
 
 				// Fall through
 
