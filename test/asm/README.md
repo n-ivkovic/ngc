@@ -1,10 +1,10 @@
 # NGC Assembler Tests
 
-End-to-end tests which are run against the compiled `ngc-asm` executable.
+End-to-end approval tests which are run against a compiled `ngc-asm` executable.
 
 ## Test structure
 
-Tests are divided into positive and negative tests.
+Approval tests are divided into positive and negative tests.
 
 ### Positive tests
 
@@ -25,6 +25,10 @@ No machine code output (`stdout`) is expected.
 | ---                 | ---         |
 | {test_name}.**in**  | Assembly file input. |
 | {test_name}.**err** | Expected error output. |
+
+Error outputs from `ngc-asm` are formatted as `<input-path>[:<line-number>]: <message>`.
+
+Expected error outputs in **.err** files do not include `<input-path>`, so are formatted as `[:<line-number>]: <message>`.
 
 ## CLI usage
 
