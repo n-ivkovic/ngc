@@ -64,8 +64,8 @@
 #define WINS_TOTAL_ROWS WIN_RAM_ROWS
 #define WINS_TOTAL_COLS (WIN_GROUP_1_COLS + WIN_COL_GAP + WIN_GROUP_2_COLS + WIN_COL_GAP + WIN_GROUP_3_COLS)
 
-#define WINS_OFFSET_Y(rows) ((rows - WINS_TOTAL_ROWS) / 2)
-#define WINS_OFFSET_X(cols) ((cols - WINS_TOTAL_COLS) / 2)
+#define WINS_OFFSET_Y(rows) ((rows > WINS_TOTAL_ROWS) ? (rows - WINS_TOTAL_ROWS) / 2 : 0)
+#define WINS_OFFSET_X(cols) ((cols > WINS_TOTAL_COLS) ? (cols - WINS_TOTAL_COLS) / 2 : 0)
 
 #define WIN_RAM_LINES 10
 #define WIN_ROM_LINES 10
@@ -162,7 +162,7 @@ static bool term_init(struct term* term, const char in_path[])
 	return false;
 }
 
-static bool term_resized(struct term* term)
+static bool term_resized(struct term* term, int* prev_rows, int* prev_cols)
 {
 	if (!term)
 		return false;
@@ -172,6 +172,12 @@ static bool term_resized(struct term* term)
 
 	if (term_rows == term->rows && term_cols == term->cols)
 		return false;
+
+	if (prev_rows)
+		*prev_rows = term->rows;
+
+	if (prev_cols)
+		*prev_cols = term->cols;
 
 	term->rows = term_rows;
 	term->cols = term_cols;
@@ -431,21 +437,6 @@ static void windows_update(const struct display_wins wins, const struct ngc_cloc
 	window_rom_update(wins.rom, tick_result, &mem->rom);
 }
 
-static void windows_recenter(struct display_wins* wins, const int term_rows, const int term_cols)
-{
-	if (!wins)
-		return;
-
-	int y_offset = WINS_OFFSET_Y(term_rows);
-	int x_offset = WINS_OFFSET_X(term_cols);
-
-	mvwin(wins->clock, WIN_CLOCK_Y + y_offset, WIN_GROUP_1_X + x_offset);
-	mvwin(wins->registers, WIN_REG_Y + y_offset, WIN_GROUP_1_X + x_offset);
-	mvwin(wins->internal, WIN_INTR_Y + y_offset, WIN_GROUP_1_X + x_offset);
-	mvwin(wins->ram, WIN_RAM_Y + y_offset, WIN_GROUP_2_X + x_offset);
-	mvwin(wins->rom, WIN_ROM_Y + y_offset, WIN_GROUP_3_X + x_offset);
-}
-
 static void windows_free(struct display_wins* wins)
 {
 	if (!wins)
@@ -456,6 +447,35 @@ static void windows_free(struct display_wins* wins)
 	delwin(wins->internal);
 	delwin(wins->ram);
 	delwin(wins->rom);
+}
+
+static bool windows_resized(struct display_wins* wins, const struct term* term, const int prev_term_rows, const int prev_term_cols)
+{
+	if (!wins || !term)
+		return false;
+
+	// Terminal does not fit windows - do not try update
+	if (term->rows < WINS_TOTAL_ROWS || term->cols < WINS_TOTAL_COLS)
+		return true;
+
+	// Terminal fit windows before resize - move windows
+	if (prev_term_rows >= WINS_TOTAL_ROWS && prev_term_cols >= WINS_TOTAL_COLS) {
+		int y_offset = WINS_OFFSET_Y(term->rows);
+		int x_offset = WINS_OFFSET_X(term->cols);
+
+		mvwin(wins->clock, WIN_CLOCK_Y + y_offset, WIN_GROUP_1_X + x_offset);
+		mvwin(wins->registers, WIN_REG_Y + y_offset, WIN_GROUP_1_X + x_offset);
+		mvwin(wins->internal, WIN_INTR_Y + y_offset, WIN_GROUP_1_X + x_offset);
+		mvwin(wins->ram, WIN_RAM_Y + y_offset, WIN_GROUP_2_X + x_offset);
+		mvwin(wins->rom, WIN_ROM_Y + y_offset, WIN_GROUP_3_X + x_offset);
+
+		return true;
+	// Terminal did not fit windows before resize - re-init windows
+	// Terminal shrinking also shrinks windows which cannot be resized
+	} else {
+		windows_free(wins);
+		return windows_init(wins, term);
+	}
 }
 
 static bool ngc_data_copy_fp(struct ngc_data* data, FILE* fp)
@@ -541,7 +561,7 @@ int main(int argc, char* argv[])
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-emu v0.3.0%s", EOL);
+				printf("ngc-emu v0.3.1%s", EOL);
 				success = true;
 				goto exit;
 			case ':':
@@ -660,8 +680,14 @@ int main(int argc, char* argv[])
 
 		// Draw display windows if due
 		if (reset || get_epoch_us() - last_term_out_epoch_us >= US_PER_TERM_OUT) {
-			if (term_resized(&term)) {
-				windows_recenter(&windows, term.rows, term.cols);
+			// Update display windows on terminal resize
+			int prev_term_rows, prev_term_cols;
+			if (term_resized(&term, &prev_term_rows, &prev_term_cols)) {
+				if (!windows_resized(&windows, &term, prev_term_rows, prev_term_cols)) {
+					print_err("Failed to resize display windows");
+					goto exit;
+				}
+
 				term_clear(&term);
 			}
 
