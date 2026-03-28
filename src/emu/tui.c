@@ -11,8 +11,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define NGC_DATA_SIZE (sizeof(ngc_word_t) * NGC_UWORD_MAX)
-
 #define NGC_UWORD_DEC_STR_LEN 5 // "65536"
 
 #define PATH_STDIN "-"
@@ -72,6 +70,12 @@
 
 #define MEM_ADDR_INIT(addr, lines) ((addr / lines) * lines)
 
+enum exit_val {
+	SUCCESS_E,
+	FAILURE_E,
+	INVALID_ARGS_E
+};
+
 struct term {
 	SCREEN* scr;
 	WINDOW* win;
@@ -92,9 +96,6 @@ struct ngc_clock {
 	bool enabled;
 	unsigned short hz;
 };
-
-// Data to manage in signal handlers
-struct term term = { 0 };
 
 static long long get_epoch_us(void)
 {
@@ -314,7 +315,7 @@ static void window_internal_update(WINDOW* win, const struct ngc_tick_result tic
 	window_update_finish(win, "Internal");
 }
 
-static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_result, const struct ngc_data* ram)
+static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_result, const struct dynarr ram)
 {
 	window_update_start(win);
 
@@ -326,7 +327,7 @@ static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_res
 	size_t addr_start = MEM_ADDR_INIT(addr_target, WIN_RAM_LINES);
 	for (size_t addr = addr_start; addr <= addr_start + WIN_RAM_LINES; addr++, y++) {
 		// Clear line if address exceeds RAM size
-		if (addr > sizeof(ram->data) / sizeof(ram->data[0])) {
+		if (addr > NGC_RXM_LEN) {
 			wmove(win, y, x);
 			wclrtoeol(win);
 			continue;
@@ -343,7 +344,7 @@ static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_res
 			wattroff(win, A_REVERSE);
 		// Print value at address
 		} else {
-			mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, ram->data[addr]);
+			mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, ngc_rxm_get(ram, addr));
 			wclrtoeol(win); // Clear any potential previous diffs
 		}
 	}
@@ -351,7 +352,7 @@ static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_res
 	window_update_finish(win, "RAM [A: *A]");
 }
 
-static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_result, const struct ngc_data* rom)
+static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_result, const struct dynarr rom)
 {
 	window_update_start(win);
 
@@ -363,7 +364,7 @@ static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_res
 	size_t addr_start = MEM_ADDR_INIT(addr_target, WIN_ROM_LINES);
 	for (size_t addr = addr_start; addr <= addr_start + WIN_ROM_LINES; addr++, y++) {
 		// Clear line if address exceeds ROM size
-		if (addr > sizeof(rom->data) / sizeof(rom->data[0])) {
+		if (addr > NGC_RXM_LEN) {
 			wmove(win, y, x);
 			wclrtoeol(win);
 			continue;
@@ -377,7 +378,7 @@ static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_res
 			wattron(win, A_REVERSE);
 
 		// Print value at address
-		mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, rom->data[addr]);
+		mvwprint_result_val(win, y, x, label, NGC_UWORD_DEC_STR_LEN, ngc_rxm_get(rom, addr));
 
 		if (addr == addr_target)
 			wattroff(win, A_REVERSE);
@@ -425,16 +426,13 @@ static bool windows_init(struct display_wins* wins, const struct term* term)
 	return false;
 }
 
-static void windows_update(const struct display_wins wins, const struct ngc_clock clock, const struct ngc_tick_result tick_result, const struct ngc_mem* mem)
+static void windows_update(const struct display_wins wins, const struct ngc_clock clock, const struct ngc_tick_result tick_result, const struct ngc_mem mem)
 {
-	if (!mem)
-		return;
-
 	window_clock_update(wins.clock, clock);
 	window_registers_update(wins.registers, tick_result);
 	window_internal_update(wins.internal, tick_result);
-	window_ram_update(wins.ram, tick_result, &mem->ram);
-	window_rom_update(wins.rom, tick_result, &mem->rom);
+	window_ram_update(wins.ram, tick_result, mem.ram);
+	window_rom_update(wins.rom, tick_result, mem.rom);
 }
 
 static void windows_free(struct display_wins* wins)
@@ -478,27 +476,29 @@ static bool windows_resized(struct display_wins* wins, const struct term* term, 
 	}
 }
 
-static bool ngc_data_copy_fp(struct ngc_data* data, FILE* fp)
+/**
+ * Set values of RAM/ROM in NandGame computer memory to values of read file.
+ */
+static bool ngc_rxm_set_fp(struct dynarr* rxm, const ngc_uword_t addr, FILE* fp)
 {
-	// Invalid params
-	if (!data || !fp)
+	if (!rxm || !fp)
 		return false;
 
 	// Read file bytes into buffer array
-	uint8_t buffer[NGC_DATA_SIZE + 1]; // +1 to detect when max exceeded
-	size_t buffer_n = fread(buffer, sizeof(uint8_t), sizeof(buffer), fp);
+	uint8_t buffer[NGC_RXM_SIZE + 1] = { 0 }; // +1 to detect when max exceeded
+	size_t buffer_n = fread(buffer, sizeof(buffer[0]), sizeof(buffer) / sizeof(buffer[0]), fp);
 
 	// Invalid number of file bytes
-	if (buffer_n == 0 || buffer_n > NGC_DATA_SIZE)
+	if (buffer_n == 0 || buffer_n > NGC_RXM_SIZE)
 		return false;
 
 	// Get number of words in file bytes
-	imaxdiv_t buffer_words = imaxdiv(buffer_n, sizeof(ngc_uword_t));
+	imaxdiv_t buffer_words = imaxdiv(buffer_n, sizeof(ngc_word_t));
 	if (buffer_words.rem > 0)
 		return false;
 
 	// Copy file buffer into NGC data
-	if (!ngc_data_copy(data, (ngc_word_t*)buffer, (ngc_uword_t)buffer_words.quot))
+	if (!ngc_rxm_set(rxm, addr, (ngc_word_t*)buffer, (size_t)buffer_words.quot))
 		return false;
 
 	return true;
@@ -526,17 +526,37 @@ static unsigned short parse_clock_hz_opt(char* optarg)
 	return result;
 }
 
+// Data to manage in signal handlers
+bool term_set = false, windows_set = false;
+struct term term = { 0 };
+struct display_wins windows = { 0 };
+struct ngc_mem mem = { 0 };
+
+/**
+ * Free data required to be managed in signal handlers.
+ */
+static void main_free(void)
+{
+	ngc_mem_empty(&mem);
+	if (windows_set) windows_free(&windows);
+	if (term_set) term_free(&term);
+}
+
+/**
+ * Handler for exit signals.
+ */
 static void exit_sig(int signal)
 {
-	term_free(&term);
+	main_free();
 	exit(signal);
 }
 
 int main(int argc, char* argv[])
 {
-	bool success = false;
-	bool term_set = false;
-	bool windows_set = false;
+	#define ERR_LEN_MAX 255
+
+	enum exit_val exit_val = FAILURE_E;
+	char exit_err[ERR_LEN_MAX + 1] = { 0 };
 
 	int opt;
 	extern char* optarg;
@@ -555,20 +575,22 @@ int main(int argc, char* argv[])
 				;
 				clock.hz = parse_clock_hz_opt(optarg);
 				if (clock.hz == 0) {
-					print_err("Invalid NGC clock Hz: %s", optarg);
+					snprintf(exit_err, ERR_LEN_MAX, "Invalid NGC clock Hz: %s", optarg);
 					goto exit;
 				}
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-emu v0.3.1%s", EOL);
-				success = true;
+				printf("ngc-emu v0.4.0%s", EOL);
+				exit_val = SUCCESS_E;
 				goto exit;
 			case ':':
-				print_err("Option -%c requires an argument", optopt);
+				snprintf(exit_err, ERR_LEN_MAX, "Option -%c requires an argument", optopt);
+				exit_val = INVALID_ARGS_E;
 				goto exit;
 			case '?':
-				print_err("Unknown option: -%c", optopt);
+				snprintf(exit_err, ERR_LEN_MAX, "Unknown option: -%c", optopt);
+				exit_val = INVALID_ARGS_E;
 				goto exit;
 		}
 	}
@@ -576,33 +598,30 @@ int main(int argc, char* argv[])
 	// Set input file path from arg
 	for (; optind < argc; optind++) {
 		if (rom_path) {
-			print_err("Multiple ROM files given");
+			snprintf(exit_err, ERR_LEN_MAX, "Multiple ROM files given");
+			exit_val = INVALID_ARGS_E;
 			goto exit;
 		}
 
 		rom_path = argv[optind];
 	}
 
-	// Init NGC memory
-	struct ngc_mem mem;
-	if (!ngc_mem_init(&mem)) {
-		print_err("Failed to intialize NGC memory");
-		goto exit;
-	}
+	// Pre-allocate space for NGC memory
+	ngc_mem_alloc(&mem);
 
 	// Open ROM file
 	bool rom_stdin = !rom_path || strncmp(rom_path, PATH_STDIN, strlen(PATH_STDIN) + 1) == 0;
 	FILE* rom_fp = rom_stdin ? stdin : fopen(rom_path, "rb");
 	if (!rom_fp) {
-		print_err("Failed to open ROM file: '%s'", rom_stdin ? "stdin" : rom_path);
+		snprintf(exit_err, ERR_LEN_MAX, "Failed to open ROM file: '%s'", rom_stdin ? "stdin" : rom_path);
 		goto exit;
 	}
 
-	// Copy ROM file into NGC memory
-	bool rom_copy_success = ngc_data_copy_fp(&mem.rom, rom_fp);
+	// Load ROM file into NGC memory
+	bool rom_loaded = ngc_rxm_set_fp(&mem.rom, 0, rom_fp);
 	fclose(rom_fp);
-	if (!rom_copy_success) {
-		print_err("Failed to load ROM file into NGC memory");
+	if (!rom_loaded) {
+		snprintf(exit_err, ERR_LEN_MAX, "Failed to load ROM file into NGC memory");
 		goto exit;
 	}
 
@@ -614,20 +633,19 @@ int main(int argc, char* argv[])
 	// Init terminal for curses output
 	term_set = term_init(&term, PATH_TTY);
 	if (!term_set) {
-		print_err("Failed to init terminal");
+		snprintf(exit_err, ERR_LEN_MAX, "Failed to init terminal");
 		goto exit;
 	}
 
 	// Init display windows
-	struct display_wins windows = { 0 };
 	windows_set = windows_init(&windows, &term);
 	if (!windows_set) {
-		print_err("Failed to init display windows");
+		snprintf(exit_err, ERR_LEN_MAX, "Failed to init display windows");
 		goto exit;
 	}
 
 	long long last_term_in_epoch_us = 0, last_tick_epoch_us = 0, last_term_out_epoch_us = 0;
-	struct ngc_tick_result tick_result;
+	struct ngc_tick_result tick_result = { 0 };
 
 	// Update emulation until end of ROM reached
 	while (mem.pc < mem.rom.len) {
@@ -639,14 +657,11 @@ int main(int argc, char* argv[])
 				case 'q':
 				case 'Q':
 				case 27: // Esc
-					success = true;
+					exit_val = SUCCESS_E;
 					goto exit;
 				case 'r':
 				case 'R':
-					if (!ngc_mem_reset(&mem)) {
-						print_err("Failed to reset NGC memory");
-						goto exit;
-					}
+					ngc_mem_reset(&mem);
 					reset = true;
 					break;
 				case 'p':
@@ -674,7 +689,10 @@ int main(int argc, char* argv[])
 
 		// Tick processor if due
 		if (reset || step || (clock.enabled && get_epoch_us() - last_tick_epoch_us >= us_per_tick)) {
-			ngc_tick(&tick_result, &mem);
+			if (!ngc_tick(&tick_result, &mem)) {
+				snprintf(exit_err, ERR_LEN_MAX, "Failed to tick processor");
+				goto exit;
+			}
 			last_tick_epoch_us = get_epoch_us();
 		}
 
@@ -684,14 +702,14 @@ int main(int argc, char* argv[])
 			int prev_term_rows, prev_term_cols;
 			if (term_resized(&term, &prev_term_rows, &prev_term_cols)) {
 				if (!windows_resized(&windows, &term, prev_term_rows, prev_term_cols)) {
-					print_err("Failed to resize display windows");
+					snprintf(exit_err, ERR_LEN_MAX, "Failed to resize display windows");
 					goto exit;
 				}
 
 				term_clear(&term);
 			}
 
-			windows_update(windows, clock, tick_result, &mem);
+			windows_update(windows, clock, tick_result, mem);
 			last_term_out_epoch_us = get_epoch_us();
 		}
 
@@ -715,10 +733,13 @@ int main(int argc, char* argv[])
 			sleep_us(sleep_time_us);
 	}
 
-	success = true;
+	exit_val = SUCCESS_E;
 
 	exit:
-	if (windows_set) windows_free(&windows);
-	if (term_set) term_free(&term);
-	return success ? EXIT_SUCCESS : EXIT_FAILURE;
+	main_free();
+
+	if (exit_val != SUCCESS_E && exit_err[0])
+		print_err(exit_err);
+
+	return exit_val;
 }

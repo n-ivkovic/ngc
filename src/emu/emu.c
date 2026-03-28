@@ -3,69 +3,57 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define MEM_AA(mem) (mem->ram.data[(ngc_uword_t)mem->a])
+#define NGC_RAM_ALLOC_LEN 512
+#define NGC_ROM_ALLOC_LEN 32
 
-/**
- * Initialize NandGame computer data (RAM or ROM) to default state.
- *
- * @param data NandGame computer data to initialize.
- * @returns Whether NandGame computer data was intialized successfully.
- */
-static bool ngc_data_init(struct ngc_data* data)
+#define NGC_RXM_ALLOC(rxm, capacity) dynarr_alloc(rxm, capacity, sizeof(ngc_word_t))
+
+ngc_word_t ngc_rxm_get(const struct dynarr rxm, const ngc_uword_t addr)
 {
-	if (!data)
-		return false;
-
-	if (!memset(data->data, 0, sizeof(data->data)))
-		return false;
-
-	data->len = NGC_UWORD_MAX;
-	return true;
+	ngc_word_t* val = dynarr_get(rxm, (size_t)addr);
+	return (val) ? *val : 0;
 }
 
-bool ngc_mem_init(struct ngc_mem* mem)
+ngc_word_t* ngc_rxm_set(struct dynarr* rxm, const ngc_uword_t addr, const ngc_word_t* words, const size_t len)
+{
+	// Ensure length of dynamic array does not exceed max RAM/ROM size
+	if ((size_t)addr + len > NGC_RXM_LEN + 1)
+		return NULL;
+
+	return dynarr_set(rxm, (size_t)addr, words, len, sizeof(ngc_word_t));
+}
+
+void ngc_mem_alloc(struct ngc_mem* mem)
+{
+	// Failure to pre-allocate space is non-critical - not checking return results
+	NGC_RXM_ALLOC(&mem->ram, NGC_RAM_ALLOC_LEN);
+	NGC_RXM_ALLOC(&mem->rom, NGC_ROM_ALLOC_LEN);
+}
+
+void ngc_mem_empty(struct ngc_mem* mem)
 {
 	if (!mem)
-		return false;
+		return;
 
 	mem->a = 0;
 	mem->d = 0;
 	mem->pc = 0;
-
-	if (!ngc_data_init(&mem->ram))
-		return false;
-
-	if (!ngc_data_init(&mem->rom))
-		return false;
-
-	return true;
+	dynarr_empty(&mem->ram);
+	dynarr_empty(&mem->rom);
 }
 
-bool ngc_mem_reset(struct ngc_mem* mem)
+void ngc_mem_reset(struct ngc_mem* mem)
 {
 	if (!mem)
-		return false;
+		return;
 
 	mem->a = 0;
 	mem->d = 0;
 	mem->pc = 0;
+	dynarr_empty(&mem->ram);
 
-	if (!ngc_data_init(&mem->ram))
-		return false;
-
-	return true;
-}
-
-bool ngc_data_copy(struct ngc_data* data, const ngc_word_t* src, const ngc_uword_t n)
-{
-	if (!data || !src)
-		return false;
-
-	if (!memcpy(&data->data, src, n * sizeof(ngc_word_t)))
-		return false;
-
-	data->len = n;
-	return true;
+	// Failure to pre-allocate space is non-critical - not checking return results
+	NGC_RXM_ALLOC(&mem->ram, NGC_RAM_ALLOC_LEN);
 }
 
 /**
@@ -159,7 +147,7 @@ static void tick_result_set_in(struct ngc_tick_result* result, const struct ngc_
 	result->in = in;
 	result->a_in = mem->a;
 	result->d_in = mem->d;
-	result->aa_in = MEM_AA(mem);
+	result->aa_in = ngc_rxm_get(mem->ram, (ngc_uword_t)mem->a);
 	result->pc_in = mem->pc;
 }
 
@@ -178,17 +166,17 @@ static void tick_result_set_out(struct ngc_tick_result* result, const struct ngc
 	result->alu = alu;
 	result->a_out = mem->a;
 	result->d_out = mem->d;
-	result->aa_out = mem->ram.data[(ngc_uword_t)result->a_in];
+	result->aa_out = ngc_rxm_get(mem->ram, (ngc_uword_t)result->a_in);
 	result->pc_out = mem->pc;
 }
 
-void ngc_tick(struct ngc_tick_result* result, struct ngc_mem* mem)
+bool ngc_tick(struct ngc_tick_result* result, struct ngc_mem* mem)
 {
 	if (!mem)
-		return;
+		return false;
 
 	// Get instruction from ROM
-	ngc_word_t in = mem->rom.data[mem->pc];
+	ngc_word_t in = ngc_rxm_get(mem->rom, mem->pc);
 
 	if (result)
 		tick_result_set_in(result, mem, in);
@@ -197,11 +185,11 @@ void ngc_tick(struct ngc_tick_result* result, struct ngc_mem* mem)
 
 	// Instruction is ALU instruction - update memory based on ALU output
 	if (in & NGC_IN_CI) {
-		alu = ngc_calc_alu(in, mem->a, mem->d, MEM_AA(mem));
+		alu = ngc_calc_alu(in, mem->a, mem->d, ngc_rxm_get(mem->ram, (ngc_uword_t)mem->a));
 
 		// *A is target - set to ALU output
-		if (in & NGC_IN_TARGET_AA)
-			MEM_AA(mem) = alu;
+		if (in & NGC_IN_TARGET_AA && !ngc_rxm_set(&mem->ram, (ngc_uword_t)mem->a, &alu, 1))
+			return false;
 
 		// D register is target - set to ALU output
 		if (in & NGC_IN_TARGET_D)
@@ -226,4 +214,6 @@ void ngc_tick(struct ngc_tick_result* result, struct ngc_mem* mem)
 
 	if (result)
 		tick_result_set_out(result, mem, alu);
+
+	return true;
 }
