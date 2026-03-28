@@ -33,24 +33,30 @@ void* dynarr_get(const struct dynarr da, const size_t ind);
 size_t dynarr_alloc(struct dynarr* da, const size_t capacity, const size_t val_size);
 
 /**
- * Add copy of value to dynamic array.
- * If dynamic array is unallocated, size of value will become the enforced maximum size of all values.
+ * Push copy of value to end of dynamic array.
+ * Size of value to copy can be less than the enforced maximum size of values for the dynamic array. In this case the copied value will be null-terminated.
+ * If dynamic array is unallocated, size of value will become the enforced maximum size of values for the dynamic array.
  *
- * @param da Dynamic array to add value to.
+ * @param da Dynamic array to push copy of value to.
  * @param val Pointer to value to copy.
  * @param size Size of value to copy.
- * @returns Value added to dynamic array. NULL if error.
+ * @returns Value pushed to end of dynamic array. NULL if error.
  */
 void* dynarr_push(struct dynarr* da, const void* val, const size_t size);
 
 /**
- * Copy values from one dynamic array to another.
+ * Set values of dynamic array to copy of values given.
+ * Capacity of dynamic array will be increased to fit all values if required.
+ * If dynamic array is unallocated, size of a single value will become the enforced maximum size of values for the dynamic array.
  *
- * @param dst Dynamic array to copy values to.
- * @param src Dynamic array to copy values from.
- * @returns Number of values copied.
+ * @param da Dynamic array to set values of.
+ * @param ind Index of dynamic array to set values from.
+ * @param vals Pointer to values to copy.
+ * @param vals_len Number of values to copy.
+ * @param val_size Size of a single value to copy.
+ * @returns Values copied to dynamic array. NULL if error.
  */
-size_t dynarr_copy(struct dynarr* dst, const struct dynarr src);
+void* dynarr_set(struct dynarr* da, const size_t ind, const void* vals, const size_t vals_len, const size_t val_size);
 
 /**
  * Free values within dynamic array using delegate function.

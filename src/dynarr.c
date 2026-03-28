@@ -1,5 +1,6 @@
 #include "dynarr.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,68 +66,77 @@ void* dynarr_push(struct dynarr* da, const void* val, const size_t size)
 	if (!da || !val)
 		return NULL;
 
-	// Allocate space for 1 value if not allocated already
-	if (!da->vals && dynarr_alloc(da, 1, size) == 0)
-		return NULL;
+	bool da_unalloc = !da->vals;
+
+	// Allocate space for value if not allocated already
+	if (da_unalloc && dynarr_alloc(da, 1, size) == 0)
+		goto error;
 
 	if (size > da->val_size)
-		return NULL;
+		goto error;
 
-	// Increase capacity if not enough
+	// Increase capacity to fit value if not enough
 	if (da->len >= da->capacity && dynarr_realloc(da, CAPACITY_INC(da->capacity)) == 0)
-		return NULL;
+		goto error;
 
 	void* result = memcpy((uint8_t*)da->vals + (da->len * da->val_size), val, size);
 	da->len++;
 
 	return result;
+
+	error:
+	if (da_unalloc) dynarr_empty(da);
+	return NULL;
 }
 
-size_t dynarr_copy(struct dynarr* dst, const struct dynarr src)
+void* dynarr_set(struct dynarr* da, const size_t ind, const void* vals, const size_t vals_len, const size_t val_size)
 {
-	if (!dst)
-		return 0;
+	if (!da || !vals)
+		return NULL;
 
-	if (src.len == 0)
-		return 0;
+	if (vals_len == 0)
+		return NULL;
 
-	// Copy source as-is to destination if destination is unallocated
-	if (!dst->vals) {
-		if (!dynarr_alloc(dst, src.capacity, src.val_size))
-			return 0;
+	bool da_unalloc = !da->vals;
+	size_t len_new = (ind + vals_len > da->len) ? ind + vals_len : da->len;
 
-		if (!memcpy(dst->vals, src.vals, src.len * src.val_size)) {
-			dynarr_empty(dst);
-			return 0;
+	// Allocate space for all values if not allocated already
+	if (da_unalloc) {
+		size_t capacity = 1;
+		while (len_new > capacity) {
+			capacity = CAPACITY_INC(capacity);
 		}
 
-		dst->len = src.len;
-		return dst->len;
+		if (dynarr_alloc(da, capacity, val_size) == 0)
+			goto error;
 	}
 
-	if (dst->val_size != src.val_size)
-		return 0;
+	if (val_size != da->val_size)
+		goto error;
 
-	size_t len_new = dst->len + src.len;
-
-	// Realloc destination to fit all values
-	if (len_new > dst->capacity) {
-		size_t capacity_new = dst->capacity;
+	// Increase capacity to fit all values if not enough
+	if (len_new > da->capacity) {
+		size_t capacity_new = da->capacity;
 		do {
 			capacity_new = CAPACITY_INC(capacity_new);
 		} while (len_new > capacity_new);
 
-		if (dynarr_realloc(dst, capacity_new) == 0)
-			return 0;
+		if (dynarr_realloc(da, capacity_new) == 0)
+			goto error;
 
-		// If failure happens after realloc, destination will not be shrunk
+		// If failure happens after realloc, dynamic array will not be shrunk
 	}
 
-	if (!memcpy((uint8_t*)dst->vals + (dst->len * dst->val_size), src.vals, src.len * src.val_size))
-		return 0;
+	void* result = memcpy((uint8_t*)da->vals + (ind * da->val_size), vals, vals_len * val_size);
+	if (!result)
+		goto error;
 
-	dst->len = len_new;
-	return len_new;
+	da->len = len_new;
+	return result;
+
+	error:
+	if (da_unalloc) dynarr_empty(da);
+	return NULL;
 }
 
 void dynarr_delegate_empty(struct dynarr* da, void (*f)(void*))
@@ -146,7 +156,7 @@ void dynarr_empty(struct dynarr* da)
 	if (!da)
 		return;
 
-	free(da->vals);
+	if (da->vals) free(da->vals);
 	da->vals = NULL;
 	da->val_size = 0;
 	da->len = 0;

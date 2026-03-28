@@ -142,7 +142,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 	assert(expanded);
 
 	// Copy data references as-is
-	if (dynarr_copy(&expanded->refs_data, parsed.refs_data) < parsed.refs_data.len) {
+	if (parsed.refs_data.len > 0 && !dynarr_set(&expanded->refs_data, expanded->refs_data.len, parsed.refs_data.vals, parsed.refs_data.len, parsed.refs_data.val_size)) {
 		error_init(err, ERRVAL_FAILURE, "Failed to copy data references");
 		return (expanded->line_num > 0) ? expanded->line_num : 1;
 	}
