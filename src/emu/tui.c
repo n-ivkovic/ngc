@@ -53,7 +53,7 @@
 #define WIN_REG_Y (WIN_CLOCK_Y + WIN_CLOCK_ROWS + WIN_ROW_GAP)
 #define WIN_REG_ROWS WIN_ROWS(3)
 #define WIN_INTR_Y (WIN_REG_Y + WIN_REG_ROWS + WIN_ROW_GAP)
-#define WIN_INTR_ROWS WIN_ROWS(1)
+#define WIN_INTR_ROWS WIN_ROWS(2)
 #define WIN_RAM_Y 0
 #define WIN_RAM_ROWS WIN_ROWS(WIN_RAM_LINES)
 #define WIN_ROM_Y 0
@@ -65,8 +65,8 @@
 #define WINS_OFFSET_Y(rows) ((rows > WINS_TOTAL_ROWS) ? (rows - WINS_TOTAL_ROWS) / 2 : 0)
 #define WINS_OFFSET_X(cols) ((cols > WINS_TOTAL_COLS) ? (cols - WINS_TOTAL_COLS) / 2 : 0)
 
-#define WIN_RAM_LINES 10
-#define WIN_ROM_LINES 10
+#define WIN_RAM_LINES 11
+#define WIN_ROM_LINES 11
 
 #define MEM_ADDR_INIT(addr, lines) ((addr / lines) * lines)
 
@@ -310,7 +310,12 @@ static void window_internal_update(WINDOW* win, const struct ngc_tick tick)
 {
 	window_update_start(win);
 
-	wprint_result_val(win, "ALU", 3, tick.alu);
+	int y, x;
+	getyx(win, y, x);
+
+	mvwprint_result_val(win, y, x, "Inst", 4, tick.inst);
+	y++;
+	mvwprint_result_val(win, y, x, "ALU", 4, tick.alu);
 
 	window_update_finish(win, "Internal");
 }
