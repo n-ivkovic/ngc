@@ -290,32 +290,32 @@ static void window_clock_update(WINDOW* win, const struct ngc_clock clock)
 	window_update_finish(win, "Clock");
 }
 
-static void window_registers_update(WINDOW* win, const struct ngc_tick_result tick_result)
+static void window_registers_update(WINDOW* win, const struct ngc_tick tick)
 {
 	window_update_start(win);
 
 	int y, x;
 	getyx(win, y, x);
 
-	mvwprint_result_diff(win, y, x, "A", 2, tick_result.a_in, tick_result.a_out);
+	mvwprint_result_diff(win, y, x, "A", 2, tick.in.a, tick.out.a);
 	y++;
-	mvwprint_result_diff(win, y, x, "D", 2, tick_result.d_in, tick_result.d_out);
+	mvwprint_result_diff(win, y, x, "D", 2, tick.in.d, tick.out.d);
 	y++;
-	mvwprint_result_diff(win, y, x, "PC", 2, tick_result.pc_in, tick_result.pc_out);
+	mvwprint_result_diff(win, y, x, "PC", 2, tick.in.pc, tick.out.pc);
 
 	window_update_finish(win, "Registers");
 }
 
-static void window_internal_update(WINDOW* win, const struct ngc_tick_result tick_result)
+static void window_internal_update(WINDOW* win, const struct ngc_tick tick)
 {
 	window_update_start(win);
 
-	wprint_result_val(win, "ALU", 3, tick_result.alu);
+	wprint_result_val(win, "ALU", 3, tick.alu);
 
 	window_update_finish(win, "Internal");
 }
 
-static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_result, const struct dynarr ram)
+static void window_ram_update(WINDOW* win, const struct ngc_tick tick, const struct dynarr ram)
 {
 	window_update_start(win);
 
@@ -323,7 +323,7 @@ static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_res
 	getyx(win, y, x);
 
 	// Print portion of RAM around address given in A register
-	size_t addr_target = (size_t)(ngc_uword_t)tick_result.a_in;
+	size_t addr_target = (size_t)(ngc_uword_t)tick.in.a;
 	size_t addr_start = MEM_ADDR_INIT(addr_target, WIN_RAM_LINES);
 	for (size_t addr = addr_start; addr <= addr_start + WIN_RAM_LINES; addr++, y++) {
 		// Clear line if address exceeds RAM size
@@ -340,7 +340,7 @@ static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_res
 		// Print diff of value at address between ticks
 		if (addr == addr_target) {
 			wattron(win, A_REVERSE);
-			mvwprint_result_diff(win, y, x, label, NGC_UWORD_DEC_STR_LEN, tick_result.aa_in, tick_result.aa_out);
+			mvwprint_result_diff(win, y, x, label, NGC_UWORD_DEC_STR_LEN, tick.in.aa, tick.out.aa);
 			wattroff(win, A_REVERSE);
 		// Print value at address
 		} else {
@@ -352,7 +352,7 @@ static void window_ram_update(WINDOW* win, const struct ngc_tick_result tick_res
 	window_update_finish(win, "RAM [A: *A]");
 }
 
-static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_result, const struct dynarr rom)
+static void window_rom_update(WINDOW* win, const struct ngc_tick tick, const struct dynarr rom)
 {
 	window_update_start(win);
 
@@ -360,7 +360,7 @@ static void window_rom_update(WINDOW* win, const struct ngc_tick_result tick_res
 	getyx(win, y, x);
 
 	// Print portion of ROM around address given in PC register
-	size_t addr_target = (size_t)(ngc_uword_t)tick_result.pc_in;
+	size_t addr_target = (size_t)(ngc_uword_t)tick.in.pc;
 	size_t addr_start = MEM_ADDR_INIT(addr_target, WIN_ROM_LINES);
 	for (size_t addr = addr_start; addr <= addr_start + WIN_ROM_LINES; addr++, y++) {
 		// Clear line if address exceeds ROM size
@@ -426,13 +426,13 @@ static bool windows_init(struct display_wins* wins, const struct term* term)
 	return false;
 }
 
-static void windows_update(const struct display_wins wins, const struct ngc_clock clock, const struct ngc_tick_result tick_result, const struct ngc_mem mem)
+static void windows_update(const struct display_wins wins, const struct ngc_clock clock, const struct ngc_tick tick, const struct ngc_mem mem)
 {
 	window_clock_update(wins.clock, clock);
-	window_registers_update(wins.registers, tick_result);
-	window_internal_update(wins.internal, tick_result);
-	window_ram_update(wins.ram, tick_result, mem.ram);
-	window_rom_update(wins.rom, tick_result, mem.rom);
+	window_registers_update(wins.registers, tick);
+	window_internal_update(wins.internal, tick);
+	window_ram_update(wins.ram, tick, mem.ram);
+	window_rom_update(wins.rom, tick, mem.rom);
 }
 
 static void windows_free(struct display_wins* wins)
@@ -553,7 +553,7 @@ static void exit_sig(int signal)
 
 int main(int argc, char* argv[])
 {
-	#define ERR_LEN_MAX 255
+	#define ERR_LEN_MAX 254
 
 	enum exit_val exit_val = FAILURE_E;
 	char exit_err[ERR_LEN_MAX + 1] = { 0 };
@@ -576,12 +576,13 @@ int main(int argc, char* argv[])
 				clock.hz = parse_clock_hz_opt(optarg);
 				if (clock.hz == 0) {
 					snprintf(exit_err, ERR_LEN_MAX, "Invalid NGC clock Hz: %s", optarg);
+					exit_val = INVALID_ARGS_E;
 					goto exit;
 				}
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-emu v0.4.0%s", EOL);
+				printf("ngc-emu v0.5.0%s", EOL);
 				exit_val = SUCCESS_E;
 				goto exit;
 			case ':':
@@ -645,7 +646,11 @@ int main(int argc, char* argv[])
 	}
 
 	long long last_term_in_epoch_us = 0, last_tick_epoch_us = 0, last_term_out_epoch_us = 0;
-	struct ngc_tick_result tick_result = { 0 };
+	struct ngc_tick tick = { 0 };
+
+	// Calculate first processor tick result
+	ngc_tick_calc(&tick, mem);
+	last_tick_epoch_us = get_epoch_us();
 
 	// Update emulation until end of ROM reached
 	while (mem.pc < mem.rom.len) {
@@ -661,7 +666,6 @@ int main(int argc, char* argv[])
 					goto exit;
 				case 'r':
 				case 'R':
-					ngc_mem_reset(&mem);
 					reset = true;
 					break;
 				case 'p':
@@ -687,17 +691,30 @@ int main(int argc, char* argv[])
 
 		long long us_per_tick = US_PER_SEC / clock.hz;
 
+		// Reset processor
+		if (reset) {
+			ngc_mem_reset(&mem);
+
+			// Calculate first processor tick result
+			ngc_tick_calc(&tick, mem);
+			last_tick_epoch_us = get_epoch_us();
+		}
+
 		// Tick processor if due
-		if (reset || step || (clock.enabled && get_epoch_us() - last_tick_epoch_us >= us_per_tick)) {
-			if (!ngc_tick(&tick_result, &mem)) {
-				snprintf(exit_err, ERR_LEN_MAX, "Failed to tick processor");
+		if (step || (clock.enabled && get_epoch_us() - last_tick_epoch_us >= us_per_tick)) {
+			// Set NandGame computer memory to processor tick result
+			if (!ngc_tick_set(&mem, tick)) {
+				snprintf(exit_err, ERR_LEN_MAX, "Failed to set memory to processor tick result");
 				goto exit;
 			}
+
+			// Calculate next processor tick result
+			ngc_tick_calc(&tick, mem);
 			last_tick_epoch_us = get_epoch_us();
 		}
 
 		// Draw display windows if due
-		if (reset || get_epoch_us() - last_term_out_epoch_us >= US_PER_TERM_OUT) {
+		if (get_epoch_us() - last_term_out_epoch_us >= US_PER_TERM_OUT) {
 			// Update display windows on terminal resize
 			int prev_term_rows, prev_term_cols;
 			if (term_resized(&term, &prev_term_rows, &prev_term_cols)) {
@@ -709,7 +726,7 @@ int main(int argc, char* argv[])
 				term_clear(&term);
 			}
 
-			windows_update(windows, clock, tick_result, mem);
+			windows_update(windows, clock, tick, mem);
 			last_term_out_epoch_us = get_epoch_us();
 		}
 

@@ -21,19 +21,24 @@ struct ngc_mem {
 };
 
 /**
- * Result of NandGame computer processor tick, showing difference in memory before and after tick.
+ * Snapshot of NandGame computer memory.
  */
-struct ngc_tick_result {
-	ngc_word_t in;
+struct ngc_mem_result {
+	ngc_word_t a;
+	ngc_word_t d;
+	ngc_uword_t pc;
+	ngc_word_t aa;
+};
+
+/**
+ * Calculated result of ticking NandGame computer processor.
+ */
+struct ngc_tick
+{
+	ngc_word_t inst;
 	ngc_word_t alu;
-	ngc_word_t a_in;
-	ngc_word_t a_out;
-	ngc_word_t d_in;
-	ngc_word_t d_out;
-	ngc_word_t aa_in;
-	ngc_word_t aa_out;
-	ngc_uword_t pc_in;
-	ngc_uword_t pc_out;
+	struct ngc_mem_result in;
+	struct ngc_mem_result out;
 };
 
 /**
@@ -79,12 +84,20 @@ void ngc_mem_empty(struct ngc_mem* mem);
 void ngc_mem_reset(struct ngc_mem* mem);
 
 /**
- * Tick NandGame computer processor.
+ * Calculate result of NandGame computer processor tick.
  *
- * @param result Difference in memory before and after tick.
+ * @param tick Result of NandGame computer processor tick.
  * @param mem NandGame computer memory.
- * @returns Whether NandGame computer processor updated memory successfully.
  */
-bool ngc_tick(struct ngc_tick_result* result, struct ngc_mem* mem);
+void ngc_tick_calc(struct ngc_tick* tick, const struct ngc_mem mem);
+
+/**
+ * Set NandGame computer memory to result of calculated processor tick.
+ *
+ * @param mem NandGame computer memory.
+ * @param tick Result of NandGame computer processor tick.
+ * @returns Whether NandGame computer memory was updated successfully.
+ */
+bool ngc_tick_set(struct ngc_mem* mem, const struct ngc_tick tick);
 
 #endif

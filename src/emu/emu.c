@@ -1,8 +1,5 @@
 #include "emu.h"
 
-#include <stdbool.h>
-#include <string.h>
-
 #define NGC_RAM_ALLOC_LEN 512
 #define NGC_ROM_ALLOC_LEN 32
 
@@ -66,21 +63,21 @@ void ngc_mem_reset(struct ngc_mem* mem)
  * @param aa Value of RAM at address given in A register.
  * @returns ALU output.
  */
-static ngc_word_t ngc_calc_alu(const ngc_word_t in, const ngc_word_t a, const ngc_word_t d, const ngc_word_t aa)
+static ngc_word_t ngc_alu_calc(const ngc_word_t inst, const ngc_word_t a, const ngc_word_t d, const ngc_word_t aa)
 {
 	// Set X and Y values
-	ngc_word_t x = (in & NGC_IN_OPR_ZX) ? 0 : d;
-	ngc_word_t y = (in & NGC_IN_AA) ? aa : a;
+	ngc_word_t x = (inst & NGC_IN_OPR_ZX) ? 0 : d;
+	ngc_word_t y = (inst & NGC_IN_AA) ? aa : a;
 
 	// Swap X and Y values
-	if (in & NGC_IN_OPR_SW) {
+	if (inst & NGC_IN_OPR_SW) {
 		ngc_word_t temp = x;
 		x = y;
 		y = temp;
 	}
 
 	// Return arithmatic or logic calculation of X and Y values
-	switch (in & (NGC_IN_OPR_U | NGC_IN_OPR_OP1 | NGC_IN_OPR_OP0)) {
+	switch (inst & (NGC_IN_OPR_U | NGC_IN_OPR_OP1 | NGC_IN_OPR_OP0)) {
 		case NGC_IN_OPR_OP0:
 			return x | y;
 		case NGC_IN_OPR_OP1:
@@ -109,9 +106,9 @@ static ngc_word_t ngc_calc_alu(const ngc_word_t in, const ngc_word_t a, const ng
  * @param alu ALU output.
  * @returns Whether ALU output meets any jump conditions.
  */
-static bool ngc_calc_jump(const ngc_word_t in, const ngc_word_t alu)
+static bool ngc_jump_calc(const ngc_word_t inst, const ngc_word_t alu)
 {
-	switch ((in & (NGC_IN_JUMP_LT | NGC_IN_JUMP_EQ | NGC_IN_JUMP_GT))) {
+	switch ((inst & (NGC_IN_JUMP_LT | NGC_IN_JUMP_EQ | NGC_IN_JUMP_GT))) {
 		case NGC_IN_JUMP_GT:
 			return alu > 0;
 		case NGC_IN_JUMP_EQ:
@@ -132,88 +129,54 @@ static bool ngc_calc_jump(const ngc_word_t in, const ngc_word_t alu)
 	}
 }
 
-/**
- * Set inputs of tick result struct.
- *
- * @param result Tick result to update.
- * @param mem NandGame computer memory before it has been updated.
- * @param in NandGame computer instruction (data or ALU).
- */
-static void tick_result_set_in(struct ngc_tick_result* result, const struct ngc_mem* mem, const ngc_word_t in)
+void ngc_tick_calc(struct ngc_tick* tick, const struct ngc_mem mem)
 {
-	if (!result || !mem)
+	if (!tick)
 		return;
 
-	result->in = in;
-	result->a_in = mem->a;
-	result->d_in = mem->d;
-	result->aa_in = ngc_rxm_get(mem->ram, (ngc_uword_t)mem->a);
-	result->pc_in = mem->pc;
+	ngc_word_t inst = ngc_rxm_get(mem.rom, mem.pc);
+	ngc_word_t mem_aa = ngc_rxm_get(mem.ram, (ngc_uword_t)mem.a);
+
+	// Set input values
+	tick->inst = inst;
+	tick->in.a = mem.a;
+	tick->in.d = mem.d;
+	tick->in.pc = mem.pc;
+	tick->in.aa = mem_aa;
+
+	// Instruction is ALU instruction
+	if (inst & NGC_IN_CI) {
+		ngc_word_t alu = ngc_alu_calc(inst, mem.a, mem.d, mem_aa);
+		tick->alu = alu;
+
+		// Memory is set to ALU output if instruction targets it
+		tick->out.a = (inst & NGC_IN_TARGET_A) ? alu : mem.a;
+		tick->out.d = (inst & NGC_IN_TARGET_D) ? alu : mem.d;
+		tick->out.aa = (inst & NGC_IN_TARGET_AA) ? alu : mem_aa;
+
+		// Program counter is set to A register output if ALU output meets jump conditions
+		tick->out.pc = ngc_jump_calc(inst, alu) ? tick->out.a : mem.pc + 1;
+	// Instruction is data instruction
+	} else {
+		tick->alu = 0;
+		tick->out.a = inst;
+		tick->out.d = mem.d;
+		tick->out.aa = mem_aa;
+		tick->out.pc = mem.pc + 1;
+	}
 }
 
-/**
- * Set outputs of tick result struct.
- *
- * @param result Tick result to update.
- * @param mem NandGame computer memory after it has been updated.
- * @param alu NandGame computer ALU output.
- */
-static void tick_result_set_out(struct ngc_tick_result* result, const struct ngc_mem* mem, const ngc_word_t alu)
-{
-	if (!result || !mem)
-		return;
-
-	result->alu = alu;
-	result->a_out = mem->a;
-	result->d_out = mem->d;
-	result->aa_out = ngc_rxm_get(mem->ram, (ngc_uword_t)result->a_in);
-	result->pc_out = mem->pc;
-}
-
-bool ngc_tick(struct ngc_tick_result* result, struct ngc_mem* mem)
+bool ngc_tick_set(struct ngc_mem* mem, const struct ngc_tick tick)
 {
 	if (!mem)
 		return false;
 
-	// Get instruction from ROM
-	ngc_word_t in = ngc_rxm_get(mem->rom, mem->pc);
+	mem->a = tick.out.a;
+	mem->d = tick.out.d;
+	mem->pc = tick.out.pc;
 
-	if (result)
-		tick_result_set_in(result, mem, in);
-
-	ngc_word_t alu;
-
-	// Instruction is ALU instruction - update memory based on ALU output
-	if (in & NGC_IN_CI) {
-		alu = ngc_calc_alu(in, mem->a, mem->d, ngc_rxm_get(mem->ram, (ngc_uword_t)mem->a));
-
-		// *A is target - set to ALU output
-		if (in & NGC_IN_TARGET_AA && !ngc_rxm_set(&mem->ram, (ngc_uword_t)mem->a, &alu, 1))
-			return false;
-
-		// D register is target - set to ALU output
-		if (in & NGC_IN_TARGET_D)
-			mem->d = alu;
-
-		// A register is target - set to ALU output
-		if (in & NGC_IN_TARGET_A)
-			mem->a = alu;
-
-		// ALU output meets jump condition - set program counter to value of A register
-		if (ngc_calc_jump(in, alu))
-			mem->pc = mem->a;
-		// ALU output does not meet jump condition
-		else
-			mem->pc++;
-	// Instruction is data instruction - set A register to instruction
-	} else {
-		alu = 0;
-		mem->a = in;
-		mem->pc++;
-	}
-
-	if (result)
-		tick_result_set_out(result, mem, alu);
+	if (tick.in.aa != tick.out.aa && !ngc_rxm_set(&mem->ram, (ngc_uword_t)tick.in.a, &tick.out.aa, 1))
+		return false;
 
 	return true;
 }
