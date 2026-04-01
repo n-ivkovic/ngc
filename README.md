@@ -127,18 +127,27 @@ $ ngc-emu [-pvV] [-c <hz>] [<path>]
 | Option    | Description |
 | ---       | ---         |
 | `<path>`  | Path to ROM file. File will be read from `stdin` if a path is not specified or path is `-`. |
-| -p        | Start emulation with the clock paused. Clock starts running if option is not specified. |
-| -c `<hz>` | Start emulation at the given clock speed. Must be a power of 10 no larger than 10000. Clock starts at 10Hz if option is not specified. |
+| -p        | Start emulation with the processor clock paused. Processor clock starts running if option is not specified. |
+| -c `<hz>` | Start emulation at the given processor clock speed. Must be a power of 10 no larger than 10000. Processor clock starts at 10Hz if option is not specified. |
+| -e        | Pause the processor clock when the emulator will exit on the next processor step (the emulated program counter reaches the end of ROM). |
 | -v, -V    | Print version and exit. |
+
+#### Exit statuses
+
+| Value | Description |
+| ---   | ---         |
+| 0     | Success.    |
+| 1     | General failure. |
+| 2     | Failure due to invalid CLI arguments. |
 
 ### Keyboard controls
 
 | Key        | Action |
 | ---        | ---    |
-| `P`        | Pause/resume clock. |
-| `S`        | Step clock one cycle (when paused). |
-| `[`        | Decrease clock speed 10x. |
-| `]`        | Increase clock speed 10x. |
+| `P`        | Pause/resume processor clock. |
+| `S`        | Advance processor clock one step only (when paused). |
+| `[`        | Decrease processor clock speed 10x. |
+| `]`        | Increase processor clock speed 10x. |
 | `R`        | Reset volatile memory (RAM and registers). |
 | `Q`, `Esc` | Exit. |
 
@@ -146,13 +155,12 @@ $ ngc-emu [-pvV] [-c <hz>] [<path>]
 
 Listed below are emulator features that are being considered, but not guarenteed to be implemented.
 
-- Additional CLI options.
-    - Set the expected endianness of the read machine code.
-    - Halt the emulator when end of ROM is reached, rather than exit.
+- CLI option(s) to set the endianness of the read machine code.
 - Additional TUI functionality.
     - Edit memory.
-    - Change displayed numerical units (binary, hex, decimal) per window.
-    - Display ROM as de-assembled instructions.
+    - Change displayed units per window.
+        - Toggle between hex or decimal values.
+        - Display ROM as de-assembled instructions.
 - Map emulated memory to files, facilitated by [mmap](https://en.wikipedia.org/wiki/Mmap). This would allow the emulator to interface with memory-mapped hardware, both emulated and physical.
 - Unit tests.
 - Windows support. Possibly would not include support for mapping emulated memory to files.

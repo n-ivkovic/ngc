@@ -94,6 +94,7 @@ struct display_wins {
 
 struct ngc_clock {
 	bool enabled;
+	bool disable_on_complete;
 	unsigned short hz;
 };
 
@@ -531,6 +532,21 @@ static unsigned short parse_clock_hz_opt(char* optarg)
 	return result;
 }
 
+/**
+ * Calculate processor tick result.
+ */
+static void tick_calc(const struct ngc_mem mem, struct ngc_tick* tick, struct ngc_clock* clock)
+{
+	if (!tick)
+		return;
+
+	ngc_tick_calc(tick, mem);
+
+	// Pause clock if next processor tick will end emulation
+	if (clock && clock->disable_on_complete && tick->out.pc >= mem.rom.len)
+		clock->enabled = false;
+}
+
 // Data to manage in signal handlers
 bool term_set = false, windows_set = false;
 struct term term = { 0 };
@@ -568,13 +584,16 @@ int main(int argc, char* argv[])
 	extern int optind, optopt;
 
 	char* rom_path = NULL;
-	struct ngc_clock clock = { .enabled = true, .hz = 10 };
+	struct ngc_clock clock = { .enabled = true, .disable_on_complete = false, .hz = 10 };
 
 	// Set vars from opts
-	while ((opt = getopt(argc, argv, ":pc:vV")) != -1) {
+	while ((opt = getopt(argc, argv, ":pec:vV")) != -1) {
 		switch (opt) {
 			case 'p':
 				clock.enabled = false;
+				break;
+			case 'e':
+				clock.disable_on_complete = true;
 				break;
 			case 'c':
 				;
@@ -654,7 +673,7 @@ int main(int argc, char* argv[])
 	struct ngc_tick tick = { 0 };
 
 	// Calculate first processor tick result
-	ngc_tick_calc(&tick, mem);
+	tick_calc(mem, &tick, &clock);
 	last_tick_epoch_us = get_epoch_us();
 
 	// Update emulation until end of ROM reached
@@ -701,7 +720,7 @@ int main(int argc, char* argv[])
 			ngc_mem_reset(&mem);
 
 			// Calculate first processor tick result
-			ngc_tick_calc(&tick, mem);
+			tick_calc(mem, &tick, &clock);
 			last_tick_epoch_us = get_epoch_us();
 		}
 
@@ -714,7 +733,7 @@ int main(int argc, char* argv[])
 			}
 
 			// Calculate next processor tick result
-			ngc_tick_calc(&tick, mem);
+			tick_calc(mem, &tick, &clock);
 			last_tick_epoch_us = get_epoch_us();
 		}
 
