@@ -359,8 +359,8 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 						return line_num;
 					}
 
-					// Assemble data reference passed as macro parameter
-					return assemble_ref_data(err, data_val, *expanded.parent, expanded.parent->parent ? root : NULL, line_num, parent_key);
+					// Assemble data reference passed as macro parameter.
+					return assemble_ref_data(err, data_val, *expanded.parent, expanded.parent->parent ? root : NULL, expanded.line_num, parent_key);
 
 				default:
 					error_init(err, ERRVAL_FAILURE, "Unknown expanded macro parameter type: %d", macro_param->type);
