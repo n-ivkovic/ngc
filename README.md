@@ -1,4 +1,5 @@
 # NGC
+
 A project that encompasses both an assembler and a TUI emulator for the fictional [**N**and**G**ame](https://nandgame.com) **c**omputer.
 
 Written in C99 and complies with [POSIX.1-2001](https://pubs.opengroup.org/onlinepubs/000095399/) through to [POSIX.1-2024](https://pubs.opengroup.org/onlinepubs/9799919799/).
@@ -23,6 +24,7 @@ $ ngc-asm memset.asm -o memset.bin
 ```
 
 NandGame machine code is output using the system's endianness.
+The original NandGame does not indicate the endianness of the computer, so none has been prescribed.
 
 ### CLI usage
 
@@ -88,8 +90,8 @@ If the key used in a `DEFINE` or `LABEL` statement is also a valid number, when 
 E.g:
 
 ```
-DEFINE xabc 123
-A = xabc
+DEFINE xABC 123
+A = xABC
 ```
 
 - The original NandGame assembler will set `A` to 123.
@@ -97,7 +99,7 @@ A = xabc
 
 ### Wishlist
 
-Listed below are assembler features that are being considered, but not guarenteed to be implemented.
+The following assembler features are being considered, but not guaranteed to be implemented:
 
 - CLI option(s) to set the endianness of the output machine code.
 - Support for combining multiple assembly files (for now you can `cat` assembly files together, e.g. `$ cat shared.asm my_program.asm | ngc-asm -`). This could be in the form of either:
@@ -110,13 +112,14 @@ Listed below are assembler features that are being considered, but not guarentee
 
 The emulator `ngc-emu` loads NandGame machine code from a given file into the emulated ROM, where it will begin executing.
 
+Once the emulated program counter reaches the end of ROM, the emulator will exit.
+
 ```
 $ ngc-emu memset.bin
 ```
 
 NandGame machine code is expected to use the system's endianness.
-
-Once the emulated program counter reaches the end of ROM, the emulator will exit.
+The original NandGame does not indicate the endianness of the computer, so none has been prescribed.
 
 ### CLI usage
 
@@ -140,7 +143,7 @@ $ ngc-emu [-pvV] [-c <hz>] [<path>]
 | 1     | General failure. |
 | 2     | Failure due to invalid CLI arguments. |
 
-### Keyboard controls
+### TUI keyboard controls
 
 | Key        | Action |
 | ---        | ---    |
@@ -151,19 +154,54 @@ $ ngc-emu [-pvV] [-c <hz>] [<path>]
 | `R`        | Reset volatile memory (RAM and registers). |
 | `Q`, `Esc` | Exit. |
 
+### TUI display windows
+
+#### Clock
+
+Displays the processor clock speed (`Hz`) and whether or not the processor clock is running (`Status`).
+
+#### Registers
+
+Displays the values of the `A`, `D`, and program counter (`PC`) registers and what their values will be on the next processor step. E.g.
+- `A: 0x0000` indicates the current value of the `A` register is 0 and will remain the same on the next processor step.
+- `A: 0x0000 -> 0xFFFF` indicates the current value of the `A` register is 0 and will updated be 0xFFFF on the next processor step.
+
+#### Internal
+
+Displays the processor instruction from ROM that has been executed (`Inst`) and the ALU output of the instruction (`ALU`).
+
+#### RAM
+
+Displays the values of a list of RAM addresses and what their values will be on the next processor step. E.g.
+- `1234: 0x0000` indicates the current value at address 1234 is 0 and will remain the same on the next processor step.
+- `1234: 0x0000 -> 0xFFFF` indicates the current value at address 1234 is 0 and will updated be 0xFFFF on the next processor step.
+
+The addresses surrounding the address given in the `A` register will be the ones listed.
+
+The memory at the address given in the `A` register will be highlighted.
+This value indicates what is referred to as `*A` in the NandGame assembly language.
+
+#### ROM
+
+Displays the values of a list of ROM addresses.
+The addresses surrounding the address given in the program counter (`PC`) register will be the ones listed.
+
+The memory at the address given in the `PC` register will be highlighted.
+This value indicates the instruction that has been executed.
+
 ### Wishlist
 
-Listed below are emulator features that are being considered, but not guarenteed to be implemented.
+The following emulator features are being considered, but not guaranteed to be implemented:
 
-- CLI option(s) to set the endianness of the read machine code.
+- CLI option(s) to set the expected endianness of machine code.
 - Additional TUI functionality.
-    - Edit memory.
-    - Change displayed units per window.
-        - Toggle between hex or decimal values.
-        - Display ROM as de-assembled instructions.
-- Map emulated memory to files, facilitated by [mmap](https://en.wikipedia.org/wiki/Mmap). This would allow the emulator to interface with memory-mapped hardware, both emulated and physical.
+	- Change displayed units per window.
+		- Toggle between hex or decimal values.
+		- Display ROM as de-assembled instructions.
+	- Edit memory.
+- Memory-mapped file support, facilitated by [mmap](https://en.wikipedia.org/wiki/Mmap). This would allow the emulator to interface with memory-mapped hardware, both emulated and physical.
 - Unit tests.
-- Windows support. Possibly would not include support for mapping emulated memory to files.
+- Windows support. Possibly would not include support for memory-mapped files.
 
 ## Installation
 
