@@ -81,6 +81,8 @@ void parsed_ref_macro_empty(struct parsed_ref_macro* ref_macro)
 	dynarr_empty(&ref_macro->params);
 }
 
+static void parsed_ref_macro_empty_v(void* p) { parsed_ref_macro_empty(p); }
+
 void parsed_base_empty(struct parsed_base* base)
 {
 	if (!base)
@@ -88,7 +90,7 @@ void parsed_base_empty(struct parsed_base* base)
 
 	dynarr_empty(&base->lines);
 	dynarr_empty(&base->refs_data);
-	dynarr_delegate_empty(&base->refs_macros, (void (*)(void *))parsed_ref_macro_empty);
+	dynarr_delegate_empty(&base->refs_macros, parsed_ref_macro_empty_v);
 	dynarr_empty(&base->defs_data);
 }
 
@@ -101,11 +103,13 @@ void parsed_def_macro_empty(struct parsed_def_macro* def_macro)
 	dynarr_empty(&def_macro->params);
 }
 
+static void parsed_def_macro_empty_v(void* p) { parsed_def_macro_empty(p); }
+
 void parsed_file_empty(struct parsed_file* file)
 {
 	if (!file)
 		return;
 
 	parsed_base_empty(&file->base);
-	dynarr_delegate_empty(&file->defs_macros, (void (*)(void *))parsed_def_macro_empty);
+	dynarr_delegate_empty(&file->defs_macros, parsed_def_macro_empty_v);
 }

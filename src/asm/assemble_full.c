@@ -67,6 +67,8 @@ static struct expanded_base* expanded_base_alloc(struct expanded_base* base, con
 	return base;
 }
 
+static void expanded_base_empty_v(void* p); // forward declaration for trampoline used below
+
 /**
  * Free values within expanded assembly.
  */
@@ -77,11 +79,13 @@ static void expanded_base_empty(struct expanded_base* base)
 
 	base->parent = NULL;
 	dynarr_empty(&base->lines);
-	dynarr_delegate_empty(&base->macros, (void (*)(void *))expanded_base_empty);
+	dynarr_delegate_empty(&base->macros, expanded_base_empty_v);
 	dynarr_empty(&base->params);
 	dynarr_empty(&base->refs_data);
 	dynarr_empty(&base->defs_data);
 }
+
+static void expanded_base_empty_v(void* p) { expanded_base_empty(p); }
 
 /**
  * Get expanded macro parameter from dynamic array using key.
