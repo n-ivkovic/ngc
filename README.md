@@ -6,6 +6,8 @@ Written in C99 and complies with [POSIX.1-2001](https://pubs.opengroup.org/onlin
 
 ![ngc demo gif](.img/ngc.gif)
 
+This project is not AI-generated - all has been originally written by myself. Any commits authored by AI are from other contributors.
+
 ## Assembler
 
 The assembler `ngc-asm` reads NandGame assembly instructions from a given file path and assembles NandGame machine code.
