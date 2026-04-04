@@ -1,8 +1,10 @@
-DEFINE xaaa 12345
-A = xaaa
+DEFINE xAA 12345
+A = xAA
+A = xAAA
 
-LABEL xbbb
-A = xbbb
+LABEL xBB
+A = xBB
+A = xBBB
 
 DEFINE shared.define_macro 12345
 A = shared.define_macro

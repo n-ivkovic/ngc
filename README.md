@@ -82,23 +82,6 @@ The table below lists differences in language features between usage within regu
 
 Like `DEFINE` and `LABEL` statements, a macro can be referenced both before and after its definition.
 
-#### Known differences from the original NandGame
-
-If the key used in a `DEFINE` or `LABEL` statement is also a valid number, when referenced:
-
-- The original NandGame assembler will use the `DEFINE`/`LABEL` value rather than the numerical value.
-- The `ngc-asm` assembler will use the numerical value rather than the `DEFINE`/`LABEL` value.
-
-E.g:
-
-```
-DEFINE xABC 123
-A = xABC
-```
-
-- The original NandGame assembler will set `A` to 123.
-- The `ngc-asm` assembler will set `A` to 0xABC (2989).
-
 ### Wishlist
 
 The following assembler features are being considered, but not guaranteed to be implemented:

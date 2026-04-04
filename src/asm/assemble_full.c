@@ -1,6 +1,7 @@
 #include "assemble_full.h"
 
 #include "../ngc.h"
+#include "parse.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -412,6 +413,13 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 			error_init(err, ERRVAL_SYNTAX, "Conflicting key given in DEFINE or LABEL statement, first used on line %zu: '%s'", data_root->line_num, data_root->key);
 			return data->line_num;
 		}
+	}
+
+	// Key does not refer to any macro parameter or data definition - try parse key as number
+	long parsed_number = parse_number(key, strlen(key));
+	if (parsed_number >= 0) {
+		*data_val = (size_t)parsed_number;
+		return 0;
 	}
 
 	error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", key);

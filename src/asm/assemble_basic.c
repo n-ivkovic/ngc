@@ -1,9 +1,11 @@
 #include "assemble_basic.h"
 
 #include "../ngc.h"
+#include "parse.h"
 
 #include <assert.h>
 #include <stdbool.h>
+#include <string.h>
 
 /**
  * Push NGC instruction.
@@ -55,6 +57,15 @@ size_t assemble_file_basic(struct error* err, struct dynarr* instructions, const
 				// Get data definition using referenced data key
 				struct parsed_def_data* def_data = parsed_def_data_get(file.defs_data, data_key);
 				if (!def_data) {
+					// Try parse key as number if no data definition found using key
+					long parsed_number = parse_number(data_key, strlen(data_key));
+					if (parsed_number >= 0) {
+						if (!inst_push(err, instructions, (ngc_word_t)parsed_number))
+							return line->line_num;
+
+						break;
+					}
+
 					error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", data_key);
 					return line->line_num;
 				}

@@ -22,6 +22,65 @@ enum parse_inst_alu_result {
 	ALU_INST_HINT_REF_MACRO_E
 };
 
+static int is_uscore(int ch) { return ch == '_'; }
+
+long parse_number(const char* tok, const size_t len)
+{
+	if (len < 1)
+		return -1;
+
+	size_t value_ind = 0;
+	int value_base = 10;
+
+	// Check if number has prefix indicating a different base
+	if (len >= 2) {
+		// Determine index of main prefix char
+		size_t prefix_ind = 0;
+		if (tok[0] == '0')
+			prefix_ind++;
+
+		// Determine base from prefix char
+		switch (tok[prefix_ind]) {
+			case 'X':
+			case 'x':
+				value_ind = prefix_ind + 1;
+				value_base = 16;
+				break;
+			case 'B':
+			case 'b':
+				value_ind = prefix_ind + 1;
+				value_base = 2;
+				break;
+		}
+	}
+
+	const char* tok_in;
+	char tok_fmt[STR_CHARS(len)];
+
+	// Format prefixed numbers without prefix and underscores
+	if (value_ind > 0) {
+		if (!str_rm(tok_fmt, &tok[value_ind], len, is_uscore))
+			return -1;
+
+		tok_in = tok_fmt;
+	} else {
+		tok_in = tok;
+	}
+
+	char* tok_end_ptr = NULL;
+	long result = strtol(tok_in, &tok_end_ptr, value_base);
+
+	// Invalid
+	if (*tok_end_ptr)
+		return -1;
+
+	// Invalid - value out of bounds
+	if (result > NGC_WORD_MAX || result < 0)
+		return -1;
+
+	return (int)result;
+}
+
 /**
  * Get whether token is a valid key.
  *
@@ -143,70 +202,6 @@ static bool refs_macro_params_push(struct error* err, struct dynarr* refs_macro_
 	}
 
 	return true;
-}
-
-static int is_uscore(int ch) { return ch == '_'; }
-
-/**
- * Parse number, between 0 and NGC_WORD_MAX (0x7FFF) inclusive.
- *
- * @param tok Token to parse.
- * @param len Length of token to parse.
- * @returns Parsed number. -1 if error.
- */
-static long parse_number(char* tok, size_t len)
-{
-	if (len < 1)
-		return -1;
-
-	size_t value_ind = 0;
-	int value_base = 10;
-
-	// Check if number has prefix indicating a different base
-	if (len >= 2) {
-		// Determine index of main prefix char
-		size_t prefix_ind = 0;
-		if (tok[0] == '0')
-			prefix_ind++;
-
-		// Determine base from prefix char
-		switch (tok[prefix_ind]) {
-			case 'X':
-			case 'x':
-				value_ind = prefix_ind + 1;
-				value_base = 16;
-				break;
-			case 'B':
-			case 'b':
-				value_ind = prefix_ind + 1;
-				value_base = 2;
-				break;
-		}
-	}
-
-	char* tok_in = tok;
-	char tok_fmt[STR_CHARS(len)];
-
-	// Format prefixed numbers without prefix and underscores
-	if (value_ind > 0) {
-		if (!str_rm(tok_fmt, &tok[value_ind], len, is_uscore))
-			return -1;
-
-		tok_in = tok_fmt;
-	}
-
-	char* tok_end_ptr = NULL;
-	long result = strtol(tok_in, &tok_end_ptr, value_base);
-
-	// Invalid
-	if (*tok_end_ptr)
-		return -1;
-
-	// Invalid - value out of bounds
-	if (result > NGC_WORD_MAX || result < 0)
-		return -1;
-
-	return (int)result;
 }
 
 /**
@@ -524,17 +519,18 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 					goto error;
 				}
 
-				// Try parse parameter as number
-				long parsed_number = parse_number(tok, tok_len);
-				if (parsed_number >= 0) {
-					// Push parsed parameter result to array
-					if (!refs_macro_params_push(err, &result.params, PARAM_CONST_E, (size_t)parsed_number))
-						goto error;
+				// Parameter cannot be a data reference
+				if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(tok, tok_len)) {
+					// Try parse parameter as number
+					long parsed_number = parse_number(tok, tok_len);
+					if (parsed_number >= 0) {
+						if (!refs_macro_params_push(err, &result.params, PARAM_CONST_E, (size_t)parsed_number))
+							goto error;
 
-					break;
-				}
+						break;
+					}
 
-				if (!(features & LANG_FEAT_DEF_DATA)) {
+					// Parameter is invalid
 					error_init(err, ERRVAL_SYNTAX, "Invalid macro parameter value: '%s'", tok);
 					goto error;
 				}
@@ -907,18 +903,18 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 
 	size_t data_str_len = strlen(data_str);
 
-	// Try parse data value as number
-	long parsed_number = parse_number(data_str, data_str_len);
-	if (parsed_number >= 0) {
-		// Push line result
-		if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)parsed_number))
-			return false;
-
-		return true;
-	}
-
-	// Validate data value can be a key
+	// Data value cannot be a data reference key
 	if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(data_str, data_str_len)) {
+		// Try parse data value as number
+		long parsed_number = parse_number(data_str, data_str_len);
+		if (parsed_number >= 0) {
+			if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)parsed_number))
+				return false;
+
+			return true;
+		}
+
+		// Data value is invalid
 		error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", data_str);
 		return false;
 	}

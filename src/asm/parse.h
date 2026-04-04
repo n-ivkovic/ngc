@@ -12,6 +12,15 @@
 #define LANG_FEAT_ALL              (LANG_FEAT_DEF_DATA | LANG_FEAT_DEF_MACROS | LANG_FEAT_DEF_MACRO_PARAMS)
 
 /**
+ * Parse number, between 0 and NGC_WORD_MAX (0x7FFF) inclusive.
+ *
+ * @param tok Token to parse.
+ * @param len Length of token to parse.
+ * @returns Parsed number. -1 if error.
+ */
+long parse_number(const char* tok, const size_t len);
+
+/**
  * Parse assembly file.
  *
  * @param err Struct to store error.
