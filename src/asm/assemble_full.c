@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MACRO_DEPTH_MAX 0x200
+
 /**
  * Expanded parsed assembly line.
  * Same struct as parsed_line, but redefined due to indexes referring to different dynamic arrays.
@@ -139,11 +141,18 @@ static bool lines_push(struct error* err, struct dynarr* lines, const enum parse
  * @param expanded Struct to store expanded/unwound result.
  * @param parsed Parsed assembly.
  * @param defs_macros Dynamic array of parsed macro definitions.
+ * @param depth Number of recursions deep the expansion/unwinding is being performed at.
  * @returns 0 if successfully expanded/unwound. >0 line number if error.
  */
-static size_t expand_parsed(struct error* err, struct expanded_base* expanded, const struct parsed_base parsed, const struct dynarr defs_macros)
+static size_t expand_parsed(struct error* err, struct expanded_base* expanded, const struct parsed_base parsed, const struct dynarr defs_macros, const size_t depth)
 {
 	assert(expanded);
+
+	// Enforce max recursive calls to prevent stack overflow
+	if (depth > MACRO_DEPTH_MAX) {
+		error_init(err, ERRVAL_SYNTAX, "Macro depth limit exceeded (max %zu)", MACRO_DEPTH_MAX);
+		return (expanded->line_num > 0) ? expanded->line_num : 1;
+	}
 
 	// Copy data references as-is
 	if (parsed.refs_data.len > 0 && !dynarr_set(&expanded->refs_data, expanded->refs_data.len, parsed.refs_data.vals, parsed.refs_data.len, parsed.refs_data.val_size)) {
@@ -236,7 +245,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 					return line->line_num;
 
 				// Recusively build expanded macro
-				size_t macro_expanded_result = expand_parsed(err, macro_expanded, def_macro->base, defs_macros);
+				size_t macro_expanded_result = expand_parsed(err, macro_expanded, def_macro->base, defs_macros, depth + 1);
 				if (macro_expanded_result > 0)
 					return macro_expanded_result;
 
@@ -521,7 +530,7 @@ size_t assemble_file_full(struct error* err, struct dynarr* instructions, const 
 	}
 
 	// Expand/unwind macros from parsed result
-	result = expand_parsed(err, &file_expanded, file.base, file.defs_macros);
+	result = expand_parsed(err, &file_expanded, file.base, file.defs_macros, 0);
 	if (result > 0)
 		goto exit;
 
