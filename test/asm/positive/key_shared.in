@@ -6,6 +6,22 @@ LABEL xBB
 A = xBB
 A = xBBB
 
+shared.number_param 12345
+
+%MACRO shared.number_param xCC
+D&A
+A = xCC
+A = xCCC
+%END
+
+xDD xDD
+
+%MACRO xDD xDD
+D&A
+A = xDD
+A = xDDD
+%END
+
 DEFINE shared.define_macro 12345
 A = shared.define_macro
 shared.define_macro
