@@ -59,10 +59,4 @@ If any tests failed, the script will also print the number of failed tests and t
 
 ## Contributing
 
-Please adhere to the following when creating a pull request:
-
-- Ensure changes are branched from `develop` and the pull request merges back into `develop`.
-- Ensure changes match the general coding style of the project. However, no specific style is prescribed.
-- Ensure changes to [**./test.sh**](./test.sh):
-    - Do not cause [ShellCheck](https://www.shellcheck.net/) to return any errors or warnings.
-    - Conform to [POSIX.1-2001](https://pubs.opengroup.org/onlinepubs/000095399/), but do not utilise features removed from or marked as obsolete in newer standards up to [POSIX.1-2024](https://pubs.opengroup.org/onlinepubs/9799919799/).
+Please read [CONTRIBUTING.md](../../CONTRIBUTING.md) before making any contributions.

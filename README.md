@@ -87,7 +87,7 @@ Like `DEFINE` and `LABEL` statements, a macro can be referenced both before and 
 The following assembler features are being considered, but not guaranteed to be implemented:
 
 - CLI option(s) to set the endianness of the output machine code.
-- Support for combining multiple assembly files (for now you can `cat` assembly files together, e.g. `$ cat shared.asm my_program.asm | ngc-asm -`). This could be in the form of either:
+- Support for combining multiple assembly files (for now you can `cat` assembly files together, e.g. `$ cat shared.asm my_program.asm | ngc-asm`). This could be in the form of either:
     - A new language feature to import other assembly files, e.g. `%INCLUDE shared.asm`.
     - A new CLI option to prefix the given assembly file with another, e.g. `ngc-asm -i shared.asm my_program.asm`.
 - Allow multiple syntax errors to be returned when assembling files, rather than returning only the first encountered error.
@@ -228,23 +228,13 @@ $ make help
 
 ## Contributing
 
-Please adhere to the following when creating a pull request:
-
-- Ensure changes are branched from `develop` and the pull request merges back into `develop`.
-- Ensure changes do not cause the compiler to return any new warnings or errors.
-- Ensure changes match the general coding style of the project. However, no specific style is prescribed.
-- Ensures changes conform to standards followed by the project.
-    - Unless specified otherwise, only features available in C99 are allowed.
-    - POSIX features may be included only in the user interface files: [./src/asm/cli.c](./src/asm/cli.c) and [./src/emu/tui.c](./src/emu/tui.c). Limiting POSIX features to the interfaces only ensures the core logic remains as portable as possible.
-        - Specifically conform to [POSIX.1-2001](https://pubs.opengroup.org/onlinepubs/000095399/), but do not utilise features removed from or marked as obsolete in newer standards up to [POSIX.1-2024](https://pubs.opengroup.org/onlinepubs/9799919799/).
-        - Features available in standards newer than POSIX.1-2001 may be utilised as long as fallbacks are implemented.
-- Ensure changes to `ngc-asm` do not cause any ASM tests to begin failing. Tests can be executed using `make test-asm`.
+Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before making any contributions.
 
 ## License
 
 Copyright &copy; 2025-2026 Nicholas Ivkovic.
 
 Licensed under the GNU General Public License version 3 or later.
-See [./LICENSE](./LICENSE), or [https://gnu.org/licenses/gpl.html](https://gnu.org/licenses/gpl.html) if more recent, for details.
+See [LICENSE](./LICENSE), or [https://gnu.org/licenses/gpl.html](https://gnu.org/licenses/gpl.html) if more recent, for details.
 
 This is free software: you are free to change and redistribute it. There is NO WARRANTY, to the extent permitted by law.

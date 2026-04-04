@@ -1,6 +1,7 @@
 *
 !.gitignore
 !README.md
+!CONTRIBUTING.md
 !LICENSE
 !makefile
 !src/**
