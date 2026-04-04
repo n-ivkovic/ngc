@@ -599,9 +599,10 @@ static long parse_inst_alu_target(const char* tok)
  * Parse targets of ALU instruction assembly.
  *
  * @param tok Token to parse.
+ * @param len Length of token to parse.
  * @returns NGC ALU instruction bits indicating targets (bits 4-6). -1 if error.
  */
-static long parse_inst_alu_targets(const char* tok)
+static long parse_inst_alu_targets(const char* tok, const size_t len)
 {
 	// Invalid - null input
 	if (!tok)
@@ -610,9 +611,8 @@ static long parse_inst_alu_targets(const char* tok)
 	#define TOK_TARGET_SEP ","
 	#define TOK_TARGET_SEP_LEN strlen(TOK_TARGET_SEP)
 
-	size_t tok_len = strlen(tok);
-	char tok_copy[tok_len];
-	if (!str_copy(tok_copy, tok, tok_len))
+	char tok_copy[STR_CHARS(len)];
+	if (!str_copy(tok_copy, tok, len))
 		return -1;
 
 	int result = 0;
@@ -639,7 +639,7 @@ static long parse_inst_alu_targets(const char* tok)
 	}
 
 	// Invalid - extraneous separator
-	if (parsed_len < tok_len)
+	if (parsed_len < len)
 		return -1;
 
 	return result;
@@ -806,7 +806,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 		}
 
 		// Parse target
-		inst_target = parse_inst_alu_targets(tok_target);
+		inst_target = parse_inst_alu_targets(tok_target, tok_target_len);
 		if (inst_target < 0) {
 			error_init(err, ERRVAL_SYNTAX, "Invalid target: '%s'", tok_target);
 			return ALU_INST_FAILURE_E;
