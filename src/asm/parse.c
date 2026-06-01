@@ -55,7 +55,7 @@ long parse_number(const char* tok, const size_t len)
 	}
 
 	const char* tok_in;
-	char tok_fmt[STR_CHARS(len)];
+	char tok_fmt[STR_CHARS(FILE_COLS_MAX)] = { 0 };
 
 	// Format prefixed numbers without prefix and underscores
 	if (value_ind > 0) {
@@ -607,7 +607,8 @@ static long parse_inst_alu_targets(const char* tok, const size_t len)
 	#define TOK_TARGET_SEP ","
 	#define TOK_TARGET_SEP_LEN strlen(TOK_TARGET_SEP)
 
-	char tok_copy[STR_CHARS(len)];
+	// Copy token - Allows const token to be passed to strtok
+	char tok_copy[STR_CHARS(FILE_COLS_MAX)] = { 0 };
 	if (!str_copy(tok_copy, tok, len))
 		return -1;
 
@@ -795,7 +796,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 		}
 
 		// Copy target token to new string
-		char tok_target[STR_CHARS(tok_target_len)];
+		char tok_target[STR_CHARS(FILE_COLS_MAX)] = { 0 };
 		if (!str_copy(tok_target, line_st, tok_target_len)) {
 			error_init(err, ERRVAL_FAILURE, "Failed to copy string");
 			return ALU_INST_FAILURE_E;
@@ -826,7 +827,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 		tok_opr_len = tok_opr_len - tok_jump_len - 1;
 
 		// Copy jump condition token to new string
-		char tok_jump[STR_CHARS(tok_jump_len)];
+		char tok_jump[STR_CHARS(FILE_COLS_MAX)] = { 0 };
 		if (!str_copy(tok_jump, &line_st[tok_jump_ind], tok_jump_len)) {
 			error_init(err, ERRVAL_FAILURE, "Failed to copy string");
 			return ALU_INST_FAILURE_E;
@@ -841,7 +842,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	}
 
 	// Copy ALU operation token to new string
-	char tok_opr[STR_CHARS(tok_opr_len)];
+	char tok_opr[STR_CHARS(FILE_COLS_MAX)] = { 0 };
 	if (!str_copy(tok_opr, &line_st[tok_opr_ind], tok_opr_len)) {
 		error_init(err, ERRVAL_FAILURE, "Failed to copy string");
 		return ALU_INST_FAILURE_E;
@@ -895,7 +896,7 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 	}
 
 	// Get string after '=' char and trim - use as value for data instruction
-	char data_str[STR_CHARS(line_len)];
+	char data_str[STR_CHARS(FILE_COLS_MAX)] = { 0 };
 	if (!str_trim(data_str, line_equals_ptr + 1, line_len)) {
 		error_init(err, ERRVAL_FAILURE, "Failed to trim whitespace from string");
 		return false;
@@ -958,8 +959,8 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 
 	bool success = false;
 
-	char line_tr[STR_CHARS(line_len)];
-	char line_st[STR_CHARS(line_len)];
+	char line_tr[STR_CHARS(FILE_COLS_MAX)] = { 0 };
+	char line_st[STR_CHARS(FILE_COLS_MAX)] = { 0 };
 
 	struct dynarr line_toks = { 0 };
 

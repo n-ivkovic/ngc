@@ -114,14 +114,25 @@ long long str_split(struct dynarr* da, const char* src, const size_t len, const 
 		if (token_ind + token_len > len)
 			token_len -= (token_ind + token_len) - len;
 
-		// Copy token to string sized for dynamic array
-		char token[STR_CHARS(len)];
-		if (!str_copy(token, &src[token_ind], token_len))
+		// Allocate space for token sized for dynamic array
+		char* token = calloc(STR_CHARS(len), sizeof(char));
+		if (!token)
 			return -1;
 
-		// Push copy of token to dynamic array
-		if (!dynarr_push(da, token, sizeof(token)))
+		// Copy token
+		if (!str_copy(token, &src[token_ind], token_len)) {
+			free(token);
 			return -1;
+		}
+
+		// Push copy of token to dynamic array
+		if (!dynarr_push(da, token, STR_SIZE(len))) {
+			free(token);
+			return -1;
+		}
+
+		free(token);
+		token = NULL;
 
 		// Add token length + any proceeding delim to get index of next token
 		token_ind += token_len;

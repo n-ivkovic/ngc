@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-asm v0.10.0%s", EOL);
+				printf("ngc-asm v0.10.1%s", EOL);
 				return 0;
 			case ':':
 				print_err("Option -%c requires an argument", optopt);
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
 		return err.val;
 	}
 
-	bool out_stdout = !out_path || strncmp(out_path, PATH_STDOUT, strlen(PATH_STDOUT) + 1) == 0;
+	bool out_stdout = !out_path || strncmp(out_path, PATH_STDOUT, STR_CHARS(strlen(PATH_STDOUT))) == 0;
 	char* out_name = out_stdout ? PATH_STDOUT : out_path;
 
 	// Open output file

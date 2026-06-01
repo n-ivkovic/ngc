@@ -34,7 +34,7 @@ vpath %.o $(ALLSRCDIR:$(SRCDIR)/%=$(OBJDIR)/%)
 # Compiler variables
 CC        = gcc
 CPPFLAGS  = #-MMD -MP
-CFLAGS    = -std=c99 -Wall -Wextra -Wpedantic
+CFLAGS    = -std=c99 -Wall -Wextra -Wpedantic -Wvla
 LDFLAGS   =
 
 ifdef DEBUG
