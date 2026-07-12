@@ -606,7 +606,7 @@ int main(int argc, char* argv[])
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-emu v0.5.0%s", EOL);
+				printf("ngc-emu v0.5.1%s", EOL);
 				exit_val = SUCCESS_E;
 				goto exit;
 			case ':':

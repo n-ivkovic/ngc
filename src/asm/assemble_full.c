@@ -57,13 +57,13 @@ static struct expanded_base* expanded_base_alloc(struct expanded_base* base, con
 	// Failure to pre-allocate space for macros is critical
 	// Dynamic array resizes done after pre-allocate invalidates any expanded_base.parent pointing to a macro
 	// TODO: Rework expanded_base struct to handle dynamic array resizes
-	if (parsed.refs_macros.len > 0 && dynarr_alloc(&base->macros, parsed.refs_macros.capacity, sizeof(struct expanded_base)) == 0)
+	if (parsed.refs_macros.len > 0 && !dynarr_alloc(&base->macros, parsed.refs_macros.len, sizeof(struct expanded_base)))
 		return NULL;
 
 	// Failure to pre-allocate space is non-critical - not checking return results
-	dynarr_alloc(&base->lines, parsed.lines.capacity, sizeof(struct expanded_line));
-	dynarr_alloc(&base->refs_data, parsed.refs_data.capacity, sizeof(char[PARSED_KEY_CHARS]));
-	dynarr_alloc(&base->defs_data, parsed.defs_data.capacity, sizeof(struct parsed_def_data));
+	dynarr_alloc(&base->lines, parsed.lines.len, sizeof(struct expanded_line));
+	dynarr_alloc(&base->refs_data, parsed.refs_data.len, sizeof(char[PARSED_KEY_CHARS]));
+	dynarr_alloc(&base->defs_data, parsed.defs_data.len, sizeof(struct parsed_def_data));
 
 	// No space pre-allocated for macro parameters
 

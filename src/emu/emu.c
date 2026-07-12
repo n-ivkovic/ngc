@@ -3,7 +3,7 @@
 #define NGC_RAM_ALLOC_LEN 512
 #define NGC_ROM_ALLOC_LEN 32
 
-#define NGC_RXM_ALLOC(rxm, capacity) dynarr_alloc(rxm, capacity, sizeof(ngc_word_t))
+#define NGC_RXM_ALLOC(rxm, len) dynarr_alloc(rxm, len, sizeof(ngc_word_t))
 
 ngc_word_t ngc_rxm_get(const struct dynarr rxm, const ngc_uword_t addr)
 {

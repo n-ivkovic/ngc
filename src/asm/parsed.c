@@ -2,9 +2,9 @@
 
 #include <stdlib.h>
 
-#define PARSED_LINES_CAPACITY_INIT  8
-#define PARSED_DATA_CAPACITY_INIT   2
-#define PARSED_MACROS_CAPACITY_INIT 2
+#define PARSED_LINES_ALLOC_LEN  8
+#define PARSED_DATA_ALLOC_LEN   2
+#define PARSED_MACROS_ALLOC_LEN 2
 
 void parsed_def_macro_alloc(struct parsed_def_macro* def_macro)
 {
@@ -22,10 +22,10 @@ void parsed_base_alloc(struct parsed_base* base)
 		return;
 
 	// Failure to pre-allocate space is non-critical - not checking return results
-	dynarr_alloc(&base->lines, PARSED_LINES_CAPACITY_INIT, sizeof(struct parsed_line));
-	dynarr_alloc(&base->refs_data, PARSED_DATA_CAPACITY_INIT, sizeof(char[PARSED_KEY_CHARS]));
-	dynarr_alloc(&base->refs_macros, PARSED_MACROS_CAPACITY_INIT, sizeof(struct parsed_ref_macro));
-	dynarr_alloc(&base->defs_data, PARSED_DATA_CAPACITY_INIT, sizeof(struct parsed_def_data));
+	dynarr_alloc(&base->lines, PARSED_LINES_ALLOC_LEN, sizeof(struct parsed_line));
+	dynarr_alloc(&base->refs_data, PARSED_DATA_ALLOC_LEN, sizeof(char[PARSED_KEY_CHARS]));
+	dynarr_alloc(&base->refs_macros, PARSED_MACROS_ALLOC_LEN, sizeof(struct parsed_ref_macro));
+	dynarr_alloc(&base->defs_data, PARSED_DATA_ALLOC_LEN, sizeof(struct parsed_def_data));
 
 	// No space pre-allocated for macro parameters
 }
@@ -36,7 +36,7 @@ void parsed_file_alloc(struct parsed_file* file)
 		return;
 
 	parsed_base_alloc(&file->base);
-	dynarr_alloc(&file->defs_macros, PARSED_MACROS_CAPACITY_INIT, sizeof(struct parsed_def_macro)); // Failure to pre-allocate space is non-critical - not checking return result
+	dynarr_alloc(&file->defs_macros, PARSED_MACROS_ALLOC_LEN, sizeof(struct parsed_def_macro)); // Failure to pre-allocate space is non-critical - not checking return result
 }
 
 struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const char* key)
