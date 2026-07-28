@@ -1,3 +1,5 @@
+# MACRO parameter key references are case-insensitive
+
 %MACRO macro.UPPER UPPER
 A = UPPER
 A = upper
@@ -20,6 +22,8 @@ A = mIxEd
 macro.UPPER 0x5550
 macro.lower 0x6C6F
 macro.mIxEd 0x4D69
+
+# MACRO parameter key supports '.' char in any position
 
 %MACRO macro.. .
 A = .
@@ -47,19 +51,99 @@ macro.X.. 0x582F
 macro..X 0x2E58
 macro...X 0x2F58
 
-%MACRO macro.AA AA
-A = AA
-A = Aa
-A = aa
+# MACRO parameter key definition can conflict with hex number
+# When referenced, hex number takes precedence if it conflicts with a MACRO parameter key
+
+%MACRO macro.x0 x0
+A = X0
+A = x0
 %END
-%MACRO macro.DD DD
-A = DD
-A = Dd
-A = dd
+%MACRO macro.x00 x00
+A = X00
+A = x00
+%END
+%MACRO macro.xF xF
+A = xF
+A = XF
+A = xf
+%END
+%MACRO macro.xFF xFF
+A = xFF
+A = XFF
+A = xff
+%END
+%MACRO macro.x_ x_
+A = x_
+A = X_
+%END
+%MACRO macro.x__ x_
+A = x__
+A = X__
 %END
 
-macro.AA 0x4141
-macro.DD 0x4444
+macro.x0 0x01
+macro.x00 0x02
+macro.xF 0xF1
+macro.xFF 0xF2
+macro.x_ 0x5F
+macro.x__ 0x5F5F
+
+# MACRO parameter key definition can conflict with binary number
+# When referenced, binary number takes precedence if it conflicts with a MACRO parameter key
+
+%MACRO macro.b0 b0
+A = B0
+A = b0
+%END
+%MACRO macro.b00 b00
+A = B00
+A = b00
+%END
+%MACRO macro.b1 b1
+A = B1
+A = b1
+%END
+%MACRO macro.b11 b11
+A = B11
+A = b11
+%END
+%MACRO macro.b_ b_
+A = B_
+A = b_
+%END
+%MACRO macro.b__ b__
+A = B__
+A = b__
+%END
+
+macro.b0 0xB01
+macro.b00 0xB02
+macro.b1 0xB11
+macro.b11 0xB12
+macro.b_ 0x5F
+macro.b__ 0x5F5F
+
+# MACRO parameter key definition cannot conflict with ALU operation:
+# - ALU operation can only be UPPER CASE
+# - MACRO parameter key cannot be UPPER CASE ALU operation
+# When referenced, ALU operation takes precedence if it conflicts with a MACRO parameter key
+
+%MACRO macro.a a
+A = A
+A = a
+%END
+%MACRO macro.d d
+A = D
+A = d
+%END
+
+macro.a 0xA
+macro.d 0xD
+
+# MACRO parameter key definition can conflict with ALU jump condition:
+# - ALU jump condition can only be UPPER CASE
+# - MACRO parameter key can be UPPER CASE ALU jump condition
+# When referenced, ALU jump condition takes precedence if it conflicts with a MACRO parameter key
 
 %MACRO macro.JGT JGT
 A = jgt

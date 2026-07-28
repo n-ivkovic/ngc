@@ -415,13 +415,6 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 		}
 	}
 
-	// Key does not refer to any macro parameter or data definition - try parse key as number
-	long parsed_number = parse_number(key, strlen(key));
-	if (parsed_number >= 0) {
-		*data_val = (size_t)parsed_number;
-		return 0;
-	}
-
 	error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", key);
 	return line_num;
 }

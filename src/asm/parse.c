@@ -24,7 +24,14 @@ enum parse_inst_alu_result {
 
 static int is_uscore(int ch) { return ch == '_'; }
 
-long parse_number(const char* tok, const size_t len)
+/**
+ * Parse number, between 0 and NGC_WORD_MAX (0x7FFF) inclusive.
+ *
+ * @param tok Token to parse.
+ * @param len Length of token to parse.
+ * @returns Parsed number. -1 if error.
+ */
+static long parse_number(const char* tok, const size_t len)
 {
 	if (len < 1)
 		return -1;
@@ -519,18 +526,17 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 					goto error;
 				}
 
+				// Try parse parameter as number
+				long parsed_number = parse_number(tok, tok_len);
+				if (parsed_number >= 0) {
+					if (!refs_macro_params_push(err, &result.params, PARAM_CONST_E, (size_t)parsed_number))
+						goto error;
+
+					break;
+				}
+
 				// Parameter cannot be a data reference
 				if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(tok, tok_len)) {
-					// Try parse parameter as number
-					long parsed_number = parse_number(tok, tok_len);
-					if (parsed_number >= 0) {
-						if (!refs_macro_params_push(err, &result.params, PARAM_CONST_E, (size_t)parsed_number))
-							goto error;
-
-						break;
-					}
-
-					// Parameter is invalid
 					error_init(err, ERRVAL_SYNTAX, "Invalid macro parameter value: '%s'", tok);
 					goto error;
 				}
@@ -763,8 +769,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	assert(lines);
 
 	// Special syntax case - line can be JMP only
-	if (strncmp(line_st, "JMP", line_len) == 0)
-	{
+	if (strncmp(line_st, "JMP", line_len) == 0) {
 		// Original NandGame assembler sets operation bits of instruction to "-1"
 		if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)(NGC_IN_ALU | NGC_IN_OPR_NEG1 | NGC_IN_JUMP_LT | NGC_IN_JUMP_EQ | NGC_IN_JUMP_GT)))
 			return ALU_INST_FAILURE_E;
@@ -904,18 +909,13 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 
 	size_t data_str_len = strlen(data_str);
 
+	// Try parse data value as number
+	long parsed_number = parse_number(data_str, data_str_len);
+	if (parsed_number >= 0)
+		return lines_push(err, lines, LINE_INST_E, line_num, (size_t)parsed_number);
+
 	// Data value cannot be a data reference key
 	if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(data_str, data_str_len)) {
-		// Try parse data value as number
-		long parsed_number = parse_number(data_str, data_str_len);
-		if (parsed_number >= 0) {
-			if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)parsed_number))
-				return false;
-
-			return true;
-		}
-
-		// Data value is invalid
 		error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", data_str);
 		return false;
 	}
@@ -933,10 +933,7 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 		return false;
 
 	// Push line result
-	if (!lines_push(err, lines, LINE_REF_DATA_E, line_num, (size_t)ref_data_ind))
-		return false;
-
-	return true;
+	return lines_push(err, lines, LINE_REF_DATA_E, line_num, (size_t)ref_data_ind);
 }
 
 /**

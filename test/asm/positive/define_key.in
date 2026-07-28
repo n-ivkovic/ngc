@@ -1,3 +1,5 @@
+# DEFINE key references are case-insensitive
+
 DEFINE UPPER 0x5550
 DEFINE lower 0x6C6F
 DEFINE mIxEd 0x4D69
@@ -15,6 +17,8 @@ A = mixed
 A = Mixed
 A = mIxEd
 
+# DEFINE key supports '.' char in any position
+
 DEFINE . 0x002E
 DEFINE .. 0x2E2E
 DEFINE X. 0x582E
@@ -29,15 +33,66 @@ A = X..
 A = .X
 A = ..X
 
-DEFINE AA 0x4141
-DEFINE DD 0x4444
+# DEFINE key definition can conflict with hex number
+# When referenced, hex number takes precedence if it conflicts with a DEFINE key
 
-A = AA
-A = Aa
-A = aa
-A = DD
-A = Dd
-A = dd
+DEFINE x0 0x01
+DEFINE x00 0x02
+DEFINE xF 0xF1
+DEFINE xFF 0xF2
+DEFINE x_ 0x5F
+DEFINE x__ 0x5F5F
+
+A = X0
+A = x0
+A = xF
+A = XF
+A = xf
+A = X_
+A = x_
+A = X__
+A = x__
+
+# DEFINE key definition can conflict with binary number
+# When referenced, binary number takes precedence if it conflicts with a DEFINE key
+
+DEFINE b0 0xB01
+DEFINE b00 0xB02
+DEFINE b1 0xB11
+DEFINE b11 0xB12
+DEFINE b_ 0x5F
+DEFINE b__ 0x5F5F
+
+A = B0
+A = b0
+A = B00
+A = b00
+A = B1
+A = b1
+A = B11
+A = b11
+A = B_
+A = b_
+A = B__
+A = b__
+
+# DEFINE key definition cannot conflict with ALU operation:
+# - ALU operation can only be UPPER CASE
+# - DEFINE key cannot be UPPER CASE ALU operation
+# When referenced, ALU operation takes precedence if it conflicts with a DEFINE key
+
+DEFINE a 0xA
+DEFINE d 0xD
+
+A = A
+A = a
+A = D
+A = d
+
+# DEFINE key definition can conflict with ALU jump condition:
+# - ALU jump condition can only be UPPER CASE
+# - DEFINE key can be UPPER CASE ALU jump condition
+# When referenced, ALU jump condition takes precedence if it conflicts with a DEFINE key
 
 DEFINE JGT 0x4754
 DEFINE JEQ 0x4551

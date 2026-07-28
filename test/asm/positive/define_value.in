@@ -29,9 +29,9 @@ DEFINE hex.x.0016 x0010
 DEFINE hex.x.max x7FFF
 DEFINE hex.x.0max x07FFF
 DEFINE hex.x.00max x007FFF
-DEFINE hex.x.upper X1ABC
+DEFINE hex.x.UPPER X1ABC
 DEFINE hex.x.lower x1abc
-DEFINE hex.x.mixed X1aBc
+DEFINE hex.x.mIxEd X1aBc
 DEFINE hex.x.uscore_start x_1ABC
 DEFINE hex.x.uscore_mid x1A_BC
 DEFINE hex.x.uscore_end x1ABC_
@@ -54,9 +54,9 @@ DEFINE hex.0x.0016 0x0010
 DEFINE hex.0x.max 0x7FFF
 DEFINE hex.0x.0max 0x07FFF
 DEFINE hex.0x.00max 0x007FFF
-DEFINE hex.0x.upper 0X1ABC
+DEFINE hex.0x.UPPER 0X1ABC
 DEFINE hex.0x.lower 0x1abc
-DEFINE hex.0x.mixed 0X1aBc
+DEFINE hex.0x.mIxEd 0X1aBc
 DEFINE hex.0x.uscore_start 0x_1ABC
 DEFINE hex.0x.uscore_mid 0x1A_BC
 DEFINE hex.0x.uscore_end 0x1ABC_
@@ -76,7 +76,7 @@ DEFINE bin.b.002 b0010
 DEFINE bin.b.max b0111111111111111
 DEFINE bin.b.0max b00111111111111111
 DEFINE bin.b.00max b000111111111111111
-DEFINE bin.b.upper B11100100
+DEFINE bin.b.UPPER B11100100
 DEFINE bin.b.lower b11100100
 DEFINE bin.b.uscore_start b_11100100
 DEFINE bin.b.uscore_mid b1110_0100
@@ -97,7 +97,7 @@ DEFINE bin.0b.002 0b0010
 DEFINE bin.0b.max 0b0111111111111111
 DEFINE bin.0b.0max 0b00111111111111111
 DEFINE bin.0b.00max 0b000111111111111111
-DEFINE bin.0b.upper 0B11100100
+DEFINE bin.0b.UPPER 0B11100100
 DEFINE bin.0b.lower 0b11100100
 DEFINE bin.0b.uscore_start 0b_11100100
 DEFINE bin.0b.uscore_mid 0b1110_0100
@@ -137,9 +137,9 @@ A = hex.x.0016
 A = hex.x.max
 A = hex.x.0max
 A = hex.x.00max
-A = hex.x.upper
+A = hex.x.UPPER
 A = hex.x.lower
-A = hex.x.mixed
+A = hex.x.mIxEd
 A = hex.x.uscore_start
 A = hex.x.uscore_mid
 A = hex.x.uscore_end
@@ -162,9 +162,9 @@ A = hex.0x.0016
 A = hex.0x.max
 A = hex.0x.0max
 A = hex.0x.00max
-A = hex.0x.upper
+A = hex.0x.UPPER
 A = hex.0x.lower
-A = hex.0x.mixed
+A = hex.0x.mIxEd
 A = hex.0x.uscore_start
 A = hex.0x.uscore_mid
 A = hex.0x.uscore_end
@@ -184,7 +184,7 @@ A = bin.b.002
 A = bin.b.max
 A = bin.b.0max
 A = bin.b.00max
-A = bin.b.upper
+A = bin.b.UPPER
 A = bin.b.lower
 A = bin.b.uscore_start
 A = bin.b.uscore_mid
@@ -205,7 +205,7 @@ A = bin.0b.002
 A = bin.0b.max
 A = bin.0b.0max
 A = bin.0b.00max
-A = bin.0b.upper
+A = bin.0b.UPPER
 A = bin.0b.lower
 A = bin.0b.uscore_start
 A = bin.0b.uscore_mid
@@ -213,3 +213,101 @@ A = bin.0b.uscore_end
 A = bin.0b.uscore_multi
 A = bin.0b.uscore_only
 A = bin.0b.uscore_only_multi
+
+# Hex DEFINE value cannot conflict with data key
+
+DEFINE x0 0x01
+DEFINE x00 0x02
+LABEL x9
+LABEL x99
+DEFINE xA 0xA1
+DEFINE xAA 0xA2
+LABEL xF
+LABEL xFF
+DEFINE x_ 0x5F
+DEFINE x__ 0x5F5F
+
+DEFINE x0.UPPER X0
+DEFINE x0.lower x0
+DEFINE x00.UPPER X00
+DEFINE x00.lower x00
+DEFINE x9.UPPER X9
+DEFINE x9.lower x9
+DEFINE x99.UPPER X99
+DEFINE x99.lower x99
+DEFINE xA.UPPER XA
+DEFINE xA.lower xa
+DEFINE xA.mIxEd xA
+DEFINE xAA.UPPER XAA
+DEFINE xAA.lower xAA
+DEFINE xAA.mIxEd xAA
+DEFINE xF.UPPER XF
+DEFINE xF.lower xf
+DEFINE xF.mIxEd xF
+DEFINE xFF.UPPER XFF
+DEFINE xFF.lower xFF
+DEFINE xFF.mIxEd xFF
+DEFINE x_.UPPER X_
+DEFINE x_.lower x_
+DEFINE x__.UPPER X__
+DEFINE x__.lower x__
+
+A = x0.UPPER
+A = x0.lower
+A = x00.UPPER
+A = x00.lower
+A = x9.UPPER
+A = x9.lower
+A = x99.UPPER
+A = x99.lower
+A = xA.UPPER
+A = xA.lower
+A = xA.mIxEd
+A = xAA.UPPER
+A = xAA.lower
+A = xAA.mIxEd
+A = xF.UPPER
+A = xF.lower
+A = xF.mIxEd
+A = xFF.UPPER
+A = xFF.lower
+A = xFF.mIxEd
+A = x_.UPPER
+A = x_.lower
+A = x__.UPPER
+A = x__.lower
+
+# Binary DEFINE value cannot conflict with data key
+
+DEFINE b0 0xB01
+DEFINE b00 0xB02
+LABEL b1
+LABEL b11
+DEFINE b_ 0x5F
+DEFINE b__ 0x5F5F
+
+DEFINE b0.UPPER B0
+DEFINE b0.lower b0
+DEFINE b00.UPPER B00
+DEFINE b00.lower b00
+DEFINE b1.UPPER B1
+DEFINE b1.lower b1
+DEFINE b11.UPPER B11
+DEFINE b11.lower b11
+DEFINE b_.UPPER B_
+DEFINE b_.lower b_
+DEFINE b__.UPPER B__
+DEFINE b__.lower b__
+
+A = b0.UPPER
+A = b0.lower
+A = b00.UPPER
+A = b00.lower
+A = b1.UPPER
+A = b1.lower
+A = b11.UPPER
+A = b11.lower
+A = b_.UPPER
+A = b_.lower
+A = b__.UPPER
+A = b__.lower

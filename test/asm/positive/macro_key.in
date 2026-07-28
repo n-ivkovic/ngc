@@ -1,3 +1,5 @@
+# MACRO key references are case-insensitive
+
 %MACRO UPPER
 A = 0x5550
 %END
@@ -21,31 +23,7 @@ mixed
 Mixed
 mIxEd
 
-%MACRO X0
-A = 0x5830
-%END
-%MACRO X00
-A = 0x5831
-%END
-%MACRO X9
-A = 0x5839
-%END
-%MACRO X99
-A = 0x5840
-%END
-%MACRO X_
-A = 0x585F
-%END
-%MACRO X__
-A = 0x5860
-%END
-
-X0
-X00
-X9
-X99
-X_
-X__
+# MACRO key supports '.' char in any position
 
 %MACRO .
 A = 0x002E
@@ -73,19 +51,83 @@ X..
 .X
 ..X
 
-%MACRO AA
-A = 0x4141
+# MACRO key can be hex number
+
+%MACRO x0
+A = 0x01
 %END
-%MACRO DD
-A = 0x4444
+%MACRO x00
+A = 0x02
+%END
+%MACRO xF
+A = 0xF1
+%END
+%MACRO xFF
+A = 0xF2
+%END
+%MACRO x_
+A = 0x5F
+%END
+%MACRO x__
+A = 0x5F5F
 %END
 
-AA
-Aa
-aa
-DD
-Dd
-dd
+x0
+x00
+xF
+xFF
+x_
+x__
+
+# MACRO key can be binary number
+
+%MACRO b0
+A = 0xB01
+%END
+%MACRO b00
+A = 0xB02
+%END
+%MACRO b1
+A = 0xB11
+%END
+%MACRO b11
+A = 0xB12
+%END
+%MACRO b_
+A = 0x5F
+%END
+%MACRO b__
+A = 0x5F5F
+%END
+
+b0
+b00
+b1
+b11
+b_
+b__
+
+# MACRO key definition cannot conflict with ALU operation
+# - ALU operation can only be UPPER CASE
+# - MACRO parameter key cannot be UPPER CASE ALU operation
+# When referenced, ALU operation takes precedence if it conflicts with a MACRO parameter key
+
+%MACRO a
+A = 0xA
+%END
+%MACRO d
+A = 0xD
+%END
+
+A
+a
+D
+d
+
+# MACRO key definition can conflict with ALU jump condition:
+# - ALU jump condition can only be UPPER CASE
+# - MACRO key can be UPPER CASE ALU jump condition
+# When referenced, ALU jump condition takes precedence if it conflicts with a MACRO key
 
 %MACRO JGT
 A = 0x4754
@@ -130,3 +172,28 @@ jLE
 jmp
 Jmp
 jMP
+
+# Only ALU jump condition that can conflict with MACRO key
+JMP
+
+# MACRO key cannot conflict with DEFINE key
+
+%MACRO shared.define
+D&A
+A = shared.define
+%END
+
+DEFINE shared.define 12345
+A = shared.define
+shared.define
+
+# MACRO key cannot conflict with LABEL key
+
+%MACRO shared.label
+D&A
+A = shared.label
+%END
+
+LABEL shared.label
+A = shared.label
+shared.label

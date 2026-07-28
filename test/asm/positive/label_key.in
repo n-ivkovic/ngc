@@ -1,3 +1,5 @@
+# LABEL key references are case-insensitive
+
 LABEL UPPER
 A = UPPER
 A = upper
@@ -14,6 +16,8 @@ A = mixed
 A = Mixed
 A = mIxEd
 
+# LABEL key supports '.' char in any position
+
 LABEL .
 A = .
 LABEL ..
@@ -27,14 +31,68 @@ A = .X
 LABEL ..X
 A = ..X
 
-LABEL AA
-A = AA
-A = Aa
-A = aa
-LABEL DD
-A = DD
-A = Dd
-A = dd
+# LABEL key definition can conflict with hex number
+# When referenced, hex number takes precedence if it conflicts with a LABEL key
+
+LABEL x0
+A = X0
+A = x0
+LABEL x00
+A = X00
+A = x00
+LABEL xF
+A = xF
+A = XF
+A = xf
+LABEL xFF
+A = xFF
+A = XFF
+A = xff
+LABEL x_
+A = X_
+A = x_
+LABEL x__
+A = X__
+A = x__
+
+# LABEL key definition can conflict with binary number
+# When referenced, binary number takes precedence if it conflicts with a LABEL key
+
+LABEL b0
+A = B0
+A = b0
+LABEL b00
+A = B00
+A = b00
+LABEL b1
+A = B1
+A = b1
+LABEL b11
+A = B11
+A = b11
+LABEL b_
+A = B_
+A = b_
+LABEL b__
+A = B__
+A = b__
+
+# LABEL key definition cannot conflict with ALU operation:
+# - ALU operation can only be UPPER CASE
+# - LABEL key cannot be UPPER CASE ALU operation
+# When referenced, ALU operation takes precedence if it conflicts with a LABEL key
+
+LABEL a
+A = A
+A = a
+LABEL d
+A = D
+A = d
+
+# LABEL key definition can conflict with ALU jump condition:
+# - ALU jump condition can only be UPPER CASE
+# - LABEL key can be UPPER CASE ALU jump condition
+# When referenced, ALU jump condition takes precedence if it conflicts with a LABEL key
 
 LABEL JGT
 A = jgt
