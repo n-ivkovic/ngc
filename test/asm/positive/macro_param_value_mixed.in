@@ -6,9 +6,14 @@ A = param2
 DEFINE key.define 0x4B44
 LABEL key.label
 
+macro.2 12345 12345
 macro.2 12345 key.define
 macro.2 12345 key.label
+
 macro.2 key.define 12345
+macro.2 key.define key.define
+macro.2 key.define key.label
+
 macro.2 key.label 12345
-macro.2 12345 key.define
-macro.2 12345 key.label
+macro.2 key.label key.define
+macro.2 key.label key.label

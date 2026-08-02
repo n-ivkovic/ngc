@@ -7,6 +7,8 @@ A = param1
 A = param2
 %END
 
+# LABEL key references are case-insensitive
+
 LABEL UPPER
 macro.1 UPPER
 macro.2 UPPER UPPER
@@ -35,6 +37,8 @@ macro.2 Mixed Mixed
 macro.1 mIxEd
 macro.2 mIxEd mIxEd
 
+# LABEL key supports '.' char in any position
+
 LABEL .
 macro.1 .
 macro.2 . .
@@ -53,6 +57,95 @@ macro.2 .X .X
 LABEL ..X
 macro.1 ..X
 macro.2 ..X ..X
+
+# LABEL key definition can overlap with hex number
+# LABEL key reference can conflict with hex number: Hex number takes precedence
+
+LABEL x0
+macro.1 X0
+macro.2 X0 X0
+macro.1 x0
+macro.2 x0 x0
+LABEL x00
+macro.1 X00
+macro.2 X00 X00
+macro.1 x00
+macro.2 x00 x00
+LABEL xF
+macro.1 xF
+macro.2 xF xF
+macro.1 XF
+macro.2 XF XF
+macro.1 xf
+macro.2 xf xf
+LABEL xFF
+macro.1 xFF
+macro.2 xFF xFF
+macro.1 XFF
+macro.2 XFF XFF
+macro.1 xff
+macro.2 xff xff
+LABEL x_
+macro.1 X_
+macro.2 X_ X_
+macro.1 x_
+macro.2 x_ x_
+LABEL x__
+macro.1 X__
+macro.2 X__ X__
+macro.1 x__
+macro.2 x__ x__
+
+# LABEL key definition can overlap with binary number
+# LABEL key reference can conflict with binary number: Binary number takes precedence
+
+LABEL b0
+macro.1 B0
+macro.2 B0 B0
+macro.1 b0
+macro.2 b0 b0
+LABEL b00
+macro.1 B00
+macro.2 B00 B00
+macro.1 b00
+macro.2 b00 b00
+LABEL b1
+macro.1 B1
+macro.2 B1 B1
+macro.1 b1
+macro.2 b1 b1
+LABEL b11
+macro.1 B11
+macro.2 B11 B11
+macro.1 b11
+macro.2 b11 b11
+LABEL b_
+macro.1 B_
+macro.2 B_ B_
+macro.1 b_
+macro.2 b_ b_
+LABEL b__
+macro.1 B__
+macro.2 B__ B__
+macro.1 b__
+macro.2 b__ b__
+
+# LABEL key definition cannot overlap with ALU operation:
+# - ALU operation can only be UPPER CASE
+# - LABEL key cannot be UPPER CASE ALU operation
+# LABEL key reference can conflict with ALU operation: ALU operation takes precedence
+
+LABEL a
+macro.1 a
+macro.2 a a
+LABEL d
+macro.1 d
+macro.2 d d
+
+# LABEL key definition can overlap with ALU jump condition
+# LABEL key reference can conflict with ALU jump condition: LABEL key reference takes precedence
+# - ALU jump operation can only be UPPER CASE
+# - LABEL key reference can conflict with ALU jump condition only when UPPER CASE
 
 LABEL JGT
 macro.1 JGT

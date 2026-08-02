@@ -51,8 +51,8 @@ macro.X.. 0x582F
 macro..X 0x2E58
 macro...X 0x2F58
 
-# MACRO parameter key definition can conflict with hex number
-# When referenced, hex number takes precedence if it conflicts with a MACRO parameter key
+# MACRO parameter key definition can overlap with hex number
+# MACRO parameter key reference can conflict with hex number: Hex number takes precedence
 
 %MACRO macro.x0 x0
 A = X0
@@ -88,8 +88,8 @@ macro.xFF 0xF2
 macro.x_ 0x5F
 macro.x__ 0x5F5F
 
-# MACRO parameter key definition can conflict with binary number
-# When referenced, binary number takes precedence if it conflicts with a MACRO parameter key
+# MACRO parameter key definition can overlap with binary number
+# MACRO parameter key reference can conflict with binary number: Binary number takes precedence
 
 %MACRO macro.b0 b0
 A = B0
@@ -123,10 +123,10 @@ macro.b11 0xB12
 macro.b_ 0x5F
 macro.b__ 0x5F5F
 
-# MACRO parameter key definition cannot conflict with ALU operation:
+# MACRO parameter key definition cannot overlap with ALU operation:
 # - ALU operation can only be UPPER CASE
 # - MACRO parameter key cannot be UPPER CASE ALU operation
-# When referenced, ALU operation takes precedence if it conflicts with a MACRO parameter key
+# MACRO parameter key reference can conflict with ALU operation: ALU operation takes precedence
 
 %MACRO macro.a a
 A = A
@@ -140,10 +140,10 @@ A = d
 macro.a 0xA
 macro.d 0xD
 
-# MACRO parameter key definition can conflict with ALU jump condition:
-# - ALU jump condition can only be UPPER CASE
-# - MACRO parameter key can be UPPER CASE ALU jump condition
-# When referenced, ALU jump condition takes precedence if it conflicts with a MACRO parameter key
+# MACRO parameter key definition can overlap with ALU jump condition
+# MACRO parameter key reference can conflict with ALU jump condition: ALU jump condition takes precedence
+# - ALU jump operation can only be UPPER CASE
+# - MACRO parameter key reference can conflict with ALU jump condition only when UPPER CASE
 
 %MACRO macro.JGT JGT
 A = jgt

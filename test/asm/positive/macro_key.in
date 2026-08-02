@@ -51,7 +51,7 @@ X..
 .X
 ..X
 
-# MACRO key can be hex number
+# MACRO key definition and reference can overlap with hex number
 
 %MACRO x0
 A = 0x01
@@ -79,7 +79,7 @@ xFF
 x_
 x__
 
-# MACRO key can be binary number
+# MACRO key definition and reference can overlap with binary number
 
 %MACRO b0
 A = 0xB01
@@ -107,10 +107,10 @@ b11
 b_
 b__
 
-# MACRO key definition cannot conflict with ALU operation
+# MACRO key definition cannot overlap with ALU operation
 # - ALU operation can only be UPPER CASE
 # - MACRO parameter key cannot be UPPER CASE ALU operation
-# When referenced, ALU operation takes precedence if it conflicts with a MACRO parameter key
+# MACRO key reference can conflict with ALU operation: ALU operation takes precedence
 
 %MACRO a
 A = 0xA
@@ -124,10 +124,10 @@ a
 D
 d
 
-# MACRO key definition can conflict with ALU jump condition:
-# - ALU jump condition can only be UPPER CASE
-# - MACRO key can be UPPER CASE ALU jump condition
-# When referenced, ALU jump condition takes precedence if it conflicts with a MACRO key
+# MACRO key definition can overlap with ALU jump condition
+# MACRO key reference can conflict with ALU jump condition: ALU jump condition takes precedence
+# - ALU jump operation can only be UPPER CASE
+# - MACRO key reference can conflict with ALU jump condition only when UPPER CASE
 
 %MACRO JGT
 A = 0x4754
@@ -173,10 +173,10 @@ jmp
 Jmp
 jMP
 
-# Only ALU jump condition that can conflict with MACRO key
+# Only ALU jump condition that can conflict with MACRO key reference
 JMP
 
-# MACRO key cannot conflict with DEFINE key
+# MACRO key definition and reference can overlap with DEFINE key
 
 %MACRO shared.define
 D&A
@@ -187,7 +187,7 @@ DEFINE shared.define 12345
 A = shared.define
 shared.define
 
-# MACRO key cannot conflict with LABEL key
+# MACRO key definition and reference can overlap with LABEL key
 
 %MACRO shared.label
 D&A

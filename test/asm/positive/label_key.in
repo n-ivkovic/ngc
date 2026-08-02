@@ -31,8 +31,8 @@ A = .X
 LABEL ..X
 A = ..X
 
-# LABEL key definition can conflict with hex number
-# When referenced, hex number takes precedence if it conflicts with a LABEL key
+# LABEL key definition can overlap with hex number
+# LABEL key reference can conflict with hex number: Hex number takes precedence
 
 LABEL x0
 A = X0
@@ -55,8 +55,8 @@ LABEL x__
 A = X__
 A = x__
 
-# LABEL key definition can conflict with binary number
-# When referenced, binary number takes precedence if it conflicts with a LABEL key
+# LABEL key definition can overlap with binary number
+# LABEL key reference can conflict with binary number: Binary number takes precedence
 
 LABEL b0
 A = B0
@@ -77,10 +77,10 @@ LABEL b__
 A = B__
 A = b__
 
-# LABEL key definition cannot conflict with ALU operation:
+# LABEL key definition cannot overlap with ALU operation:
 # - ALU operation can only be UPPER CASE
 # - LABEL key cannot be UPPER CASE ALU operation
-# When referenced, ALU operation takes precedence if it conflicts with a LABEL key
+# LABEL key reference can conflict with ALU operation: ALU operation takes precedence
 
 LABEL a
 A = A
@@ -89,10 +89,10 @@ LABEL d
 A = D
 A = d
 
-# LABEL key definition can conflict with ALU jump condition:
-# - ALU jump condition can only be UPPER CASE
-# - LABEL key can be UPPER CASE ALU jump condition
-# When referenced, ALU jump condition takes precedence if it conflicts with a LABEL key
+# LABEL key definition can overlap with ALU jump condition
+# LABEL key reference can conflict with ALU jump condition: ALU jump condition takes precedence
+# - ALU jump operation can only be UPPER CASE
+# - LABEL key reference can conflict with ALU jump condition only when UPPER CASE
 
 LABEL JGT
 A = jgt

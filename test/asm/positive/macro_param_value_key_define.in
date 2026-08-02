@@ -7,6 +7,8 @@ A = param1
 A = param2
 %END
 
+# DEFINE key references are case-insensitive
+
 DEFINE UPPER 0x5550
 DEFINE lower 0x6C6F
 DEFINE mIxEd 0x4D69
@@ -36,6 +38,8 @@ macro.2 Mixed Mixed
 macro.1 mIxEd
 macro.2 mIxEd mIxEd
 
+# DEFINE key supports '.' char in any position
+
 DEFINE . 0x002E
 DEFINE .. 0x2E2E
 DEFINE X. 0x582E
@@ -55,6 +59,88 @@ macro.1 .X
 macro.2 .X .X
 macro.1 ..X
 macro.2 ..X ..X
+
+# DEFINE key definition can overlap with hex number
+# DEFINE key reference can conflict with hex number: Hex number takes precedence
+
+DEFINE x0 0x01
+DEFINE x00 0x02
+DEFINE xF 0xF1
+DEFINE xFF 0xF2
+DEFINE x_ 0x5F
+DEFINE x__ 0x5F5F
+
+macro.1 X0
+macro.2 X0 X0
+macro.1 x0
+macro.2 x0 x0
+macro.1 xF
+macro.2 xF xF
+macro.1 XF
+macro.2 XF XF
+macro.1 xf
+macro.2 xf xf
+macro.1 X_
+macro.2 X_ X_
+macro.1 x_
+macro.2 x_ x_
+macro.1 X__
+macro.2 X__ X__
+macro.1 x__
+macro.2 x__ x__
+
+# DEFINE key definition can overlap with binary number
+# DEFINE key reference can conflict with binary number: Binary number takes precedence
+
+DEFINE b0 0xB01
+DEFINE b00 0xB02
+DEFINE b1 0xB11
+DEFINE b11 0xB12
+DEFINE b_ 0x5F
+DEFINE b__ 0x5F5F
+
+macro.1 B0
+macro.2 B0 B0
+macro.1 b0
+macro.2 b0 b0
+macro.1 B00
+macro.2 B00 B00
+macro.1 b00
+macro.2 b00 b00
+macro.1 B1
+macro.2 B1 B1
+macro.1 b1
+macro.2 b1 b1
+macro.1 B11
+macro.2 B11 B11
+macro.1 b11
+macro.2 b11 b11
+macro.1 B_
+macro.2 B_ B_
+macro.1 b_
+macro.2 b_ b_
+macro.1 B__
+macro.2 B__ B__
+macro.1 b__
+macro.2 b__ b__
+
+# DEFINE key definition cannot overlap with ALU operation:
+# - ALU operation can only be UPPER CASE
+# - DEFINE key cannot be UPPER CASE ALU operation
+# DEFINE key reference can conflict with ALU operation: ALU operation takes precedence
+
+DEFINE a 0xA
+DEFINE d 0xD
+
+macro.1 a
+macro.2 a a
+macro.1 d
+macro.2 d d
+
+# DEFINE key definition can overlap with ALU jump condition
+# DEFINE key reference can conflict with ALU jump condition: DEFINE key reference takes precedence\
+# - ALU jump operation can only be UPPER CASE
+# - DEFINE key reference can conflict with ALU jump condition only when UPPER CASE
 
 DEFINE JGT 0x4754
 DEFINE JEQ 0x4551
