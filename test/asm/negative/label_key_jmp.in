@@ -1,0 +1,7 @@
+# LABEL key definition can overlap with ALU jump condition
+# LABEL key reference can conflict with ALU jump condition: ALU jump condition takes precedence
+# - ALU jump operation can only be UPPER CASE
+# - LABEL key reference can conflict with ALU jump condition only when UPPER CASE
+
+LABEL jmp
+A = JMP

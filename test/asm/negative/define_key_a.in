@@ -1,0 +1,4 @@
+# DEFINE key definition cannot be UPPER CASE ALU operation
+
+DEFINE A 12345
+A = a

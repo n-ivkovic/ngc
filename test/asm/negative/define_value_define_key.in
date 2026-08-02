@@ -1,0 +1,5 @@
+DEFINE valid 12345
+DEFINE invalid valid
+
+A = valid
+A = invalid

@@ -1,0 +1,10 @@
+# MACRO parameter key definition cannot overlap with ALU operation:
+# - ALU operation can only be UPPER CASE
+# - MACRO parameter key cannot be UPPER CASE ALU operation
+# MACRO parameter key reference can conflict with ALU operation: ALU operation takes precedence
+
+%MACRO macro.D D
+A = d
+%END
+
+macro.D 12345

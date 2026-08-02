@@ -1,0 +1,5 @@
+LABEL valid
+DEFINE invalid valid
+
+A = valid
+A = invalid

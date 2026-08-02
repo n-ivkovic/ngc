@@ -1,0 +1,4 @@
+# LABEL key definition cannot be UPPER CASE ALU operation
+
+LABEL A
+A = a

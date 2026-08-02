@@ -1,0 +1,10 @@
+# MACRO key definition can overlap with ALU jump condition
+# MACRO key reference can conflict with ALU jump condition: ALU jump condition takes precedence
+# - ALU jump operation can only be UPPER CASE
+# - MACRO key reference can conflict with ALU jump condition only when UPPER CASE
+
+%MACRO JNE
+A = 0x4E45
+%END
+
+JNE
