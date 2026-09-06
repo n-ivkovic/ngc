@@ -1,0 +1,5 @@
+# LABEL key definition can overlap with keywords
+# LABEL key reference cannot be 'LABEL' despite no conflict
+
+LABEL LABEL
+A = LABEL

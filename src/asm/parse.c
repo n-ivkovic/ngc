@@ -920,6 +920,12 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 		return false;
 	}
 
+	// Original NandGame assembler does not allow data reference key of uppercase 'LABEL', despite it being a valid data key that cannot conflict with LABEL keyword
+	if (strncmp("LABEL", data_str, STR_CHARS(data_str_len)) == 0) {
+		error_init(err, ERRVAL_SYNTAX, "LABEL keyword must be first word in statement");
+		return false;
+	}
+
 	// Ensure key is null-terminated
 	char data_key[PARSED_KEY_CHARS] = { 0 };
 	if (!str_copy(data_key, data_str, data_str_len)) {
@@ -995,7 +1001,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 			goto exit;
 		}
 
-		// Parse line as non-instruction definitions
+		// Parse line as non-instruction based on keyword
 		switch (str_ull(line_tok_first)) {
 			// DEFINE
 			case 0x444546494E45:

@@ -33,6 +33,18 @@ A = X..
 A = .X
 A = ..X
 
+# DEFINE key definition can overlap with keywords
+# DEFINE key reference cannot be UPPER CASE 'LABEL' despite no conflict
+
+DEFINE DEFINE 0x4445
+DEFINE LABEL 0x4C41
+
+A = DEFINE
+A = define
+A = dEfInE
+A = label
+A = lAbEl
+
 # DEFINE key definition can overlap with hex number
 # DEFINE key reference can conflict with hex number: Hex number takes precedence
 

@@ -31,6 +31,17 @@ A = .X
 LABEL ..X
 A = ..X
 
+# LABEL key definition can overlap with keywords
+# LABEL key reference cannot be UPPER CASE 'LABEL' despite no conflict
+
+LABEL LABEL
+A = label
+A = lAbEl
+LABEL DEFINE
+A = DEFINE
+A = define
+A = dEfInE
+
 # LABEL key definition can overlap with hex number
 # LABEL key reference can conflict with hex number: Hex number takes precedence
 

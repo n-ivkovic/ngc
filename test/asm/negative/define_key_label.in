@@ -1,0 +1,5 @@
+# DEFINE key definition can overlap with keywords
+# DEFINE key reference cannot be 'LABEL' despite no conflict
+
+DEFINE LABEL 12345
+A = LABEL
