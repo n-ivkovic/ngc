@@ -1,0 +1,5 @@
+%MACRO macro conflicting conflicting
+A = conflicting
+%END
+
+macro 1 2

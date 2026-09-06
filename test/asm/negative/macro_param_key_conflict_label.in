@@ -1,5 +1,5 @@
 %MACRO macro conflicting
-DEFINE conflicting 0x00D1
+LABEL conflicting
 A = conflicting
 %END
 

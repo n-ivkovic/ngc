@@ -1,0 +1,6 @@
+%MACRO macro conflicting
+DEFINE conflicting 0x00D1
+A = conflicting
+%END
+
+macro 12345
