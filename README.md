@@ -25,19 +25,21 @@ JMP
 $ ngc-asm memset.asm -o memset.bin
 ```
 
-NandGame machine code is output using the system's endianness.
-The original NandGame does not indicate the endianness of the computer, so none has been prescribed.
+The original NandGame does not indicate the endianness of the computer.
+Therefore, the assembler does not perscribe any particular endianness and outputs NandGame machine code using the system's endianness by default.
 
 ### CLI usage
 
 ```
-$ ngc-asm [-vV] [-o <path>] [<path>]
+$ ngc-asm [-eEvV] [-o <path>] [<path>]
 ```
 
 | Option      | Description |
 | ---         | ---         |
 | `<path>`    | Path to assembly file. File will be read from `stdin` if a path is not specified or path is `-`. |
 | -o `<path>` | Path to output assembled machine code. Assembled machine code will be output to `stdout` if a path is not specified. |
+| -e          | Output assembled machine code using little-endian byte order. Assembled machine code will be output using the system's endianness if neither the `-e` option nor the `-E` option is specified. |
+| -E          | Output assembled machine code using big-endian byte order. Assembled machine code will be output using the system's endianness if neither the `-e` option nor the `-E` option is specified. |
 | -v, -V      | Print version and exit. |
 
 #### Exit statuses
@@ -86,7 +88,6 @@ Like `DEFINE` and `LABEL` statements, a macro can be referenced both before and 
 
 The following assembler features are being considered, but not guaranteed to be implemented:
 
-- CLI option(s) to set the endianness of the output machine code.
 - Support for combining multiple assembly files (for now you can `cat` assembly files together, e.g. `$ cat shared.asm my_program.asm | ngc-asm`). This could be in the form of either:
     - A new language feature to import other assembly files, e.g. `%INCLUDE shared.asm`.
     - A new CLI option to prefix the given assembly file with another, e.g. `ngc-asm -i shared.asm my_program.asm`.
@@ -103,21 +104,23 @@ Once the emulated program counter reaches the end of ROM, the emulator will exit
 $ ngc-emu memset.bin
 ```
 
-NandGame machine code is expected to use the system's endianness.
-The original NandGame does not indicate the endianness of the computer, so none has been prescribed.
+The original NandGame does not indicate the endianness of the computer.
+Therefore, the emulator does not perscribe any particular endianness and loads NandGame machine code into ROM using the system's endianness by default.
 
 ### CLI usage
 
 ```
-$ ngc-emu [-pvV] [-c <hz>] [<path>]
+$ ngc-emu [-eEpxvV] [-c <hz>] [<path>]
 ```
 
 | Option    | Description |
 | ---       | ---         |
 | `<path>`  | Path to ROM file. File will be read from `stdin` if a path is not specified or path is `-`. |
+| -e        | Read ROM file using little-endian byte order. ROM file will be read using the system's endianness if neither the `-e` option nor the `-E` option is specified. |
+| -E        | Read ROM file using big-endian byte order. ROM file will be read using the system's endianness if neither the `-e` option nor the `-E` option is specified. |
 | -p        | Start emulation with the processor clock paused. Processor clock starts running if option is not specified. |
 | -c `<hz>` | Start emulation at the given processor clock speed. Must be a power of 10 no larger than 10000. Processor clock starts at 10Hz if option is not specified. |
-| -e        | Pause the processor clock when the emulator will exit on the next processor step (the emulated program counter reaches the end of ROM). |
+| -x        | Pause the processor clock when the emulator will exit on the next processor step (the emulated program counter reaches the end of ROM). |
 | -v, -V    | Print version and exit. |
 
 #### Exit statuses
@@ -149,7 +152,7 @@ Displays the processor clock speed (`Hz`) and whether or not the processor clock
 
 Displays the values of the `A`, `D`, and program counter (`PC`) registers and what their values will be on the next processor step. E.g.
 - `A: 0x0000` indicates the current value of the `A` register is 0 and will remain the same on the next processor step.
-- `A: 0x0000 -> 0xFFFF` indicates the current value of the `A` register is 0 and will updated be 0xFFFF on the next processor step.
+- `A: 0x0000 -> 0xFFFF` indicates the current value of the `A` register is 0 and will be updated be 0xFFFF on the next processor step.
 
 #### Internal
 
@@ -159,7 +162,7 @@ Displays the processor instruction from ROM that has been executed (`Inst`) and 
 
 Displays the values of a list of RAM addresses and what their values will be on the next processor step. E.g.
 - `1234: 0x0000` indicates the current value at address 1234 is 0 and will remain the same on the next processor step.
-- `1234: 0x0000 -> 0xFFFF` indicates the current value at address 1234 is 0 and will updated be 0xFFFF on the next processor step.
+- `1234: 0x0000 -> 0xFFFF` indicates the current value at address 1234 is 0 and will be updated be 0xFFFF on the next processor step.
 
 The addresses surrounding the address given in the `A` register will be the ones listed.
 
@@ -178,11 +181,10 @@ This value indicates the instruction that has been executed.
 
 The following emulator features are being considered, but not guaranteed to be implemented:
 
-- CLI option(s) to set the expected endianness of machine code.
 - Additional TUI functionality.
 	- Change displayed units per window.
 		- Toggle between hex or decimal values.
-		- Display ROM as de-assembled instructions.
+		- Display ROM as disassembled instructions.
 	- Edit memory.
 - Memory-mapped file support, facilitated by [mmap](https://en.wikipedia.org/wiki/Mmap). This would allow the emulator to interface with memory-mapped hardware, both emulated and physical.
 - Unit tests.

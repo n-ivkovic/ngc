@@ -14,7 +14,7 @@ No error output (`stderr`) is expected.
 | File path           | Description |
 | ---                 | ---         |
 | {test_name}.**in**  | Assembly file input. |
-| {test_name}.**out** | Expected machine code output. |
+| {test_name}.**out** | Expected machine code output. Machine code output is in little-endian byte order. |
 
 ### Negative tests
 

@@ -14,6 +14,13 @@ _term_color() {
 	tput setaf "$1" 2>/dev/null || printf "%b[3%sm" "\033" "$1"
 }
 
+# Run executable file for test
+# $1 path to executable file
+# $2 path to input file
+_exe() {
+	"$1" -e "$2"
+}
+
 # Set config based on environment variables
 [ -z "$NO_COLOR" ] && term_color=1 || term_color=0
 [ "${LANG#*UTF-8}" != "$LANG" ] && term_unicode=1 || term_unicode=0
@@ -73,7 +80,7 @@ for in_file in $pos_in_files; do
 	out_expected="$(cat "$out_file")"
 
 	# Act - Execute and concat both stdout and stderr
-	exe_result="$("$exe_path" "$in_file" 2>&1)"
+	exe_result="$(_exe "$exe_path" "$in_file" 2>&1)"
 
 	# Assert
 	# - Execution should return expected stdout
@@ -99,7 +106,7 @@ for in_file in $neg_in_files; do
 	err_expected="$(printf "%s%s" "$in_file" "$(cat "$err_file")")"
 
 	# Act - Execute and concat both stdout and stderr
-	exe_result="$("$exe_path" "$in_file" 2>&1)"
+	exe_result="$(_exe "$exe_path" "$in_file" 2>&1)"
 
 	# Assert
 	# - Execution should return expected stderr

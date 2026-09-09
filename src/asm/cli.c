@@ -1,11 +1,13 @@
 #define _XOPEN_SOURCE 600
 
+#include "../endianness.h"
 #include "../ngc.h"
 #include "../print.h"
 #include "assemble.h"
 #include "parse.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,20 +46,42 @@ int main(int argc, char* argv[])
 {
 	char* in_path = NULL;
 	char* out_path = NULL;
+	enum endianness endianness = endianness_get();
+	bool endianness_override = false;
 
 	int opt;
 	extern char* optarg;
 	extern int optind, optopt;
 
 	// Set vars from opts
-	while ((opt = getopt(argc, argv, ":i:o:vV")) != -1) {
+	while ((opt = getopt(argc, argv, ":o:eEvV")) != -1) {
 		switch (opt) {
 			case 'o':
+				if (out_path) {
+					print_err("Multiple output paths given");
+					return ERRVAL_ARGS;
+				}
 				out_path = optarg;
+				break;
+			case 'e':
+				if (endianness_override) {
+					print_err("Multiple endianness options given");
+					return ERRVAL_ARGS;
+				}
+				endianness = LITTLE_E;
+				endianness_override = true;
+				break;
+			case 'E':
+				if (endianness_override) {
+					print_err("Multiple endianness options given");
+					return ERRVAL_ARGS;
+				}
+				endianness = BIG_E;
+				endianness_override = true;
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-asm v0.11.0%s", EOL);
+				printf("ngc-asm v0.12.0%s", EOL);
 				return 0;
 			case ':':
 				print_err("Option -%c requires an argument", optopt);
@@ -78,7 +102,7 @@ int main(int argc, char* argv[])
 		in_path = argv[optind];
 	}
 
-	bool in_stdin = !in_path || strncmp(in_path, PATH_STDIN, strlen(PATH_STDIN) + 1) == 0;
+	bool in_stdin = !in_path || strncmp(in_path, PATH_STDIN, STR_CHARS(strlen(PATH_STDIN))) == 0;
 	char* in_name = in_stdin ? PATH_STDIN : in_path;
 
 	// Open input file
@@ -132,7 +156,26 @@ int main(int argc, char* argv[])
 	}
 
 	// Output assembled instructions
-	fwrite(instructions.vals, instructions.val_size, instructions.len, out_fp);
+	if (endianness == endianness_get()) {
+		// Endianness given in options matches system - instructions can be output as-is
+		fwrite(instructions.vals, instructions.val_size, instructions.len, out_fp);
+	} else {
+		// Endianness given in options is opposite of system - reverse endianness of each word before outputting
+		for (size_t word_ind = 0; word_ind < instructions.len; word_ind++) {
+			ngc_word_t* word = dynarr_get(instructions, word_ind);
+			if (!word) {
+				print_err("Failed to get NGC instruction");
+				fclose(out_fp);
+				dynarr_empty(&instructions);
+				return ERRVAL_FAILURE;
+			}
+
+			ngc_word_t word_reverse = 0;
+			endianness_reverse(&word_reverse, word, sizeof(ngc_word_t));
+
+			fwrite(&word_reverse, sizeof(word_reverse), 1, out_fp);
+		}
+	}
 
 	fclose(out_fp);
 	dynarr_empty(&instructions);

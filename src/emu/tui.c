@@ -1,6 +1,7 @@
 #define _XOPEN_SOURCE 600
 
 #include "../print.h"
+#include "../endianness.h"
 #include "emu.h"
 
 #include <curses.h>
@@ -485,7 +486,7 @@ static bool windows_resized(struct display_wins* wins, const struct term* term, 
 /**
  * Set values of RAM/ROM in NandGame computer memory to values of read file.
  */
-static bool ngc_rxm_set_fp(struct dynarr* rxm, const ngc_uword_t addr, FILE* fp)
+static bool ngc_rxm_set_fp(struct dynarr* rxm, const ngc_uword_t addr, const enum endianness fp_endianness, FILE* fp)
 {
 	if (!rxm || !fp)
 		return false;
@@ -504,8 +505,19 @@ static bool ngc_rxm_set_fp(struct dynarr* rxm, const ngc_uword_t addr, FILE* fp)
 		return false;
 
 	// Copy file buffer into NGC data
-	if (!ngc_rxm_set(rxm, addr, (ngc_word_t*)buffer, (size_t)buffer_words.quot))
-		return false;
+	if (fp_endianness == endianness_get()) {
+		// Endianness of file matches system - file buffer can be copied as-is
+		if (!ngc_rxm_set(rxm, addr, (ngc_word_t*)buffer, (size_t)buffer_words.quot))
+			return false;
+	} else {
+		// Endianness of file is opposite of system - reverse endianness of each word before copying
+		for (size_t word_ind = 0; word_ind < (size_t)buffer_words.quot; word_ind++) {
+			ngc_word_t word_reverse = 0;
+			endianness_reverse(&word_reverse, (ngc_word_t*)&buffer + (word_ind * sizeof(ngc_word_t)), sizeof(ngc_word_t));
+			if (!ngc_rxm_set(rxm, addr + word_ind, &word_reverse, 1))
+				return false;
+		}
+	}
 
 	return true;
 }
@@ -579,20 +591,40 @@ int main(int argc, char* argv[])
 	enum exit_val exit_val = FAILURE_E;
 	char exit_err[ERR_LEN_MAX + 1] = { 0 };
 
+	char* rom_path = NULL;
+	enum endianness rom_endianness = endianness_get();
+	bool rom_endianness_override = false;
+	struct ngc_clock clock = { .enabled = true, .disable_on_complete = false, .hz = 10 };
+
 	int opt;
 	extern char* optarg;
 	extern int optind, optopt;
 
-	char* rom_path = NULL;
-	struct ngc_clock clock = { .enabled = true, .disable_on_complete = false, .hz = 10 };
-
 	// Set vars from opts
-	while ((opt = getopt(argc, argv, ":pec:vV")) != -1) {
+	while ((opt = getopt(argc, argv, ":eEpxc:vV")) != -1) {
 		switch (opt) {
+			case 'e':
+				if (rom_endianness_override) {
+					snprintf(exit_err, ERR_LEN_MAX, "Multiple ROM endianness options given");
+					exit_val = INVALID_ARGS_E;
+					goto exit;
+				}
+				rom_endianness = LITTLE_E;
+				rom_endianness_override = true;
+				break;
+			case 'E':
+				if (rom_endianness_override) {
+					snprintf(exit_err, ERR_LEN_MAX, "Multiple ROM endianness options given");
+					exit_val = INVALID_ARGS_E;
+					goto exit;
+				}
+				rom_endianness = BIG_E;
+				rom_endianness_override = true;
+				break;
 			case 'p':
 				clock.enabled = false;
 				break;
-			case 'e':
+			case 'x':
 				clock.disable_on_complete = true;
 				break;
 			case 'c':
@@ -606,7 +638,7 @@ int main(int argc, char* argv[])
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-emu v0.5.1%s", EOL);
+				printf("ngc-emu v0.6.0%s", EOL);
 				exit_val = SUCCESS_E;
 				goto exit;
 			case ':':
@@ -643,7 +675,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Load ROM file into NGC memory
-	bool rom_loaded = ngc_rxm_set_fp(&mem.rom, 0, rom_fp);
+	bool rom_loaded = ngc_rxm_set_fp(&mem.rom, 0, rom_endianness, rom_fp);
 	fclose(rom_fp);
 	if (!rom_loaded) {
 		snprintf(exit_err, ERR_LEN_MAX, "Failed to load ROM file into NGC memory");

@@ -12,8 +12,8 @@ EMUBIN     = $(BASENAME)-$(EMUNAME)
 ALLBIN     = $(ASMBIN) $(EMUBIN)
 ASMSRCDIR  = $(ASMNAME)
 EMUSRCDIR  = $(EMUNAME)
-ASMOBJS    = print.o dynarr.o $(ASMSRCDIR)/str.o $(ASMSRCDIR)/err.o $(ASMSRCDIR)/parsed.o $(ASMSRCDIR)/parse.o $(ASMSRCDIR)/assemble.o $(ASMSRCDIR)/assemble_basic.o $(ASMSRCDIR)/assemble_full.o $(ASMSRCDIR)/cli.o
-EMUOBJS    = print.o dynarr.o $(EMUSRCDIR)/emu.o $(EMUSRCDIR)/tui.o
+ASMOBJS    = print.o dynarr.o endianness.o $(ASMSRCDIR)/str.o $(ASMSRCDIR)/err.o $(ASMSRCDIR)/parsed.o $(ASMSRCDIR)/parse.o $(ASMSRCDIR)/assemble.o $(ASMSRCDIR)/assemble_basic.o $(ASMSRCDIR)/assemble_full.o $(ASMSRCDIR)/cli.o
+EMUOBJS    = print.o dynarr.o endianness.o $(EMUSRCDIR)/emu.o $(EMUSRCDIR)/tui.o
 ASMMANS    =
 EMUMANS    =
 ASMINSTALL = $(DESTBINDIR)/$(ASMBIN) $(ASMMANS:%=$(DESTMANDIR)/%)
