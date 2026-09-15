@@ -1,12 +1,6 @@
 %MACRO outer
-
-%MACRO inner
-D&A
+	%MACRO inner
+		D&A
+	%END
+	D&A
 %END
-
-D&A
-inner
-
-%END
-
-outer

@@ -6,10 +6,10 @@ D&A
 
 %MACRO macro.1.1 param1
 
-# Comment
-A = param1
+	# Comment
+	A = param1
 
-D & A
+	D & A
 
 %END
 
@@ -35,27 +35,27 @@ D&A
 
 %MACRO macro.2.1 param1 param2
 
-# Comment
-A = param1
-A = param2
+	# Comment
+	A = param1
+	A = param2
 
-D & A
+	D & A
 
 %END
 
-                 %MACRO                 macro.2.2               param1              param2                      
+    	         %MACRO                 macro.2.2               param1              param2                      
                                  
-                        #                    Comment                
+    	                #                    Comment                
 
-             A              =                       param1              
+    	     A              =                       param1              
 
-                    A            =              param2              
+    	            A            =              param2              
                                  
-            D           &               A
+    	    D           &               A
 
 
-                    %END                        
+    	            %END                        
 
 macro.2.0 0x4D32 0x4D33
 macro.2.1 0x4D32 0x4D33
-                macro.2.2                   0x4D32                         0x4D33                      
+    	        macro.2.2                   0x4D32                         0x4D33                      

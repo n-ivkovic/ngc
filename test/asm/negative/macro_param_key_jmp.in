@@ -4,7 +4,5 @@
 # - MACRO parameter key reference can conflict with ALU jump condition only when UPPER CASE
 
 %MACRO macro.JMP JMP
-A = JMP
+	A = JMP
 %END
-
-macro.JMP 12345

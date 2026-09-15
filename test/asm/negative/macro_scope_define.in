@@ -1,5 +1,5 @@
 %MACRO macro
-DEFINE define 1
+	DEFINE define 1
 %END
 
 A = define

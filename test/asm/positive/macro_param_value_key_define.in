@@ -1,10 +1,10 @@
 %MACRO macro.1 param1
-A = param1
+	A = param1
 %END
 
 %MACRO macro.2 param1 param2
-A = param1
-A = param2
+	A = param1
+	A = param2
 %END
 
 # DEFINE key references are case-insensitive

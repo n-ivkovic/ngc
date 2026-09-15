@@ -1,6 +1,6 @@
 %MACRO macro conflicting
-LABEL conflicting
-A = conflicting
+	LABEL conflicting
+	A = conflicting
 %END
 
 macro 12345

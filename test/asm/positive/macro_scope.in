@@ -4,25 +4,25 @@ A = file.label
 A = file.define
 
 %MACRO macro.a
-DEFINE macro.define 0xDA
-LABEL macro.label
-A = macro.label
-A = macro.define
+	DEFINE macro.define 0xDA
+	LABEL macro.label
+	A = macro.label
+	A = macro.define
 
-A = file.label
-A = file.define
+	A = file.label
+	A = file.define
 
-macro.b
+	macro.b
 %END
 
 %MACRO macro.b
-DEFINE macro.define 0xDB
-LABEL macro.label
-A = macro.label
-A = macro.define
+	DEFINE macro.define 0xDB
+	LABEL macro.label
+	A = macro.label
+	A = macro.define
 
-A = file.label
-A = file.define
+	A = file.label
+	A = file.define
 %END
 
 macro.a

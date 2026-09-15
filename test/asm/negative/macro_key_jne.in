@@ -4,7 +4,7 @@
 # - MACRO key reference can conflict with ALU jump condition only when UPPER CASE
 
 %MACRO JNE
-A = 0x4E45
+	A = 0x4E45
 %END
 
 JNE

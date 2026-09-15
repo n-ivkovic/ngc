@@ -4,7 +4,5 @@
 # MACRO parameter key reference can conflict with ALU operation: ALU operation takes precedence
 
 %MACRO macro.D D
-A = d
+	A = d
 %END
-
-macro.D 12345

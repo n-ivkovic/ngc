@@ -1,9 +1,7 @@
 %MACRO conflicting
-D&A
+	D&A
 %END
 
-conflicting
-
 %MACRO conflicting
--1
+	-1
 %END

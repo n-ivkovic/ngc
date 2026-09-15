@@ -67,9 +67,9 @@ A macro definition begins with the opening statement `%MACRO <name> [<parameters
 
 ```
 %MACRO push.static address
-A = address
-D = *A
-push.D
+	A = address
+	D = *A
+	push.D
 %END
 ```
 

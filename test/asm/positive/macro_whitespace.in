@@ -6,23 +6,23 @@ D&A
 
 %MACRO macro.1
 
-# Comment
-A = 0x4D30
+	# Comment
+	A = 0x4D30
 
-D & A
+	D & A
 
 %END
 
-                     %MACRO                  macro.2                  
+    	             %MACRO                  macro.2                  
 
-        #                       Comment                 
+    	#                       Comment                 
 
-         A          =           0x4D30                
+    	 A          =           0x4D30                
 
-             D           &           A              
+    	     D           &           A              
 
-            %END                 
+    	    %END                 
 
 macro.0
 macro.1
-            macro.2                       
+    	    macro.2                       

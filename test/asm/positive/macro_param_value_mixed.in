@@ -1,6 +1,6 @@
 %MACRO macro.2 param1 param2
-A = param1
-A = param2
+	A = param1
+	A = param2
 %END
 
 DEFINE key.define 0x4B44

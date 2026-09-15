@@ -1,6 +1,6 @@
 %MACRO macro
-DEFINE conflicting 0x00D1
-A = conflicting
+	DEFINE conflicting 0x00D1
+	A = conflicting
 %END
 
 DEFINE conflicting 0x00D0

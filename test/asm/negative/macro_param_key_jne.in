@@ -4,7 +4,5 @@
 # - MACRO parameter key reference can conflict with ALU jump condition only when UPPER CASE
 
 %MACRO macro.JNE JNE
-A = JNE
+	A = JNE
 %END
-
-macro.JNE 12345
