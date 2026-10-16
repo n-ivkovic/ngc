@@ -88,6 +88,23 @@ A = b_
 A = B__
 A = b__
 
+# DEFINE key definition can start with alpha-prefixed number (b, x)
+# DEFINE key reference can conflict with invalid number if DEFINE key starts with alpha-prefixed number (b, x): Invalid number takes precedence
+
+DEFINE b2 0xB2
+DEFINE b20 0xB20
+DEFINE xg 0x47
+DEFINE xg0 0x470
+
+A = B2
+A = b2
+A = B20
+A = b20
+A = XG
+A = xg
+A = XG0
+A = xg0
+
 # DEFINE key definition cannot overlap with ALU operation:
 # - ALU operation can only be UPPER CASE
 # - DEFINE key cannot be UPPER CASE ALU operation

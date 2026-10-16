@@ -88,6 +88,22 @@ LABEL b__
 A = B__
 A = b__
 
+# LABEL key definition can start with alpha-prefixed number (b, x)
+# LABEL key reference can conflict with invalid number if LABEL key starts with alpha-prefixed number (b, x): Invalid number takes precedence
+
+LABEL b2
+A = B2
+A = b2
+LABEL b20
+A = B20
+A = b20
+LABEL xg
+A = XG
+A = xg
+LABEL xg0
+A = XG0
+A = xg0
+
 # LABEL key definition cannot overlap with ALU operation:
 # - ALU operation can only be UPPER CASE
 # - LABEL key cannot be UPPER CASE ALU operation

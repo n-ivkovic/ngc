@@ -51,61 +51,26 @@ X..
 .X
 ..X
 
-# MACRO key definition and reference can overlap with hex number
+# MACRO key definition can start with alpha-prefixed number (b, x)
+# MACRO key reference can conflict with invalid number if MACRO key starts with alpha-prefixed number (b, x): Invalid number takes precedence
 
-%MACRO x0
-	A = 0x01
+%MACRO b2
+	A = 0xB2
 %END
-%MACRO x00
-	A = 0x02
+%MACRO b20
+	A = 0xB20
 %END
-%MACRO xF
-	A = 0xF1
+%MACRO xg
+	A = 0x47
 %END
-%MACRO xFF
-	A = 0xF2
-%END
-%MACRO x_
-	A = 0x5F
-%END
-%MACRO x__
-	A = 0x5F5F
+%MACRO xg0
+	A = 0x470
 %END
 
-x0
-x00
-xF
-xFF
-x_
-x__
-
-# MACRO key definition and reference can overlap with binary number
-
-%MACRO b0
-	A = 0xB01
-%END
-%MACRO b00
-	A = 0xB02
-%END
-%MACRO b1
-	A = 0xB11
-%END
-%MACRO b11
-	A = 0xB12
-%END
-%MACRO b_
-	A = 0x5F
-%END
-%MACRO b__
-	A = 0x5F5F
-%END
-
-b0
-b00
-b1
-b11
-b_
-b__
+b2
+b20
+xg
+xg0
 
 # MACRO key definition cannot overlap with ALU operation
 # - ALU operation can only be UPPER CASE

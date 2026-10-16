@@ -1,0 +1,5 @@
+# DEFINE key cannot start with number (0-9)
+
+DEFINE 0.invalid 0
+
+A = 0.invalid

@@ -1,0 +1,6 @@
+# DEFINE key definition can start with alpha-prefixed number (b, x)
+# DEFINE key reference can conflict with invalid number if DEFINE key starts with alpha-prefixed number (b, x): Invalid number takes precedence
+
+DEFINE b0.invalid b0
+
+A = b0.invalid

@@ -1,0 +1,7 @@
+# MACRO key cannot start with number (0-9)
+
+%MACRO 99_invalid
+    D&A
+%END
+
+99_invalid

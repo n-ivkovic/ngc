@@ -1,0 +1,6 @@
+# LABEL key definition can start with alpha-prefixed number (b, x)
+# LABEL key reference can conflict with invalid number if LABEL key starts with alpha-prefixed number (b, x): Invalid number takes precedence
+
+LABEL b0.invalid
+
+A = b0.invalid

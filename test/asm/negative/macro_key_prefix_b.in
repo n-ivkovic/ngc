@@ -1,0 +1,8 @@
+# MACRO key definition can start with alpha-prefixed number (b, x)
+# MACRO key reference can conflict with invalid number if MACRO key starts with alpha-prefixed number (b, x): Invalid number takes precedence
+
+%MACRO b_invalid
+    D&A
+%END
+
+b_invalid

@@ -33,7 +33,11 @@ static int is_uscore(int ch) { return ch == '_'; }
  */
 static long parse_number(const char* tok, const size_t len)
 {
-	if (len < 1)
+	if (!tok)
+		return -1;
+
+	// Token must be valid length
+	if (len < 1 || len > FILE_COLS_MAX)
 		return -1;
 
 	size_t value_ind = 0;
@@ -61,21 +65,20 @@ static long parse_number(const char* tok, const size_t len)
 		}
 	}
 
-	const char* tok_in;
-	char tok_fmt[STR_CHARS(FILE_COLS_MAX)] = { 0 };
+	char tok_buffer[STR_CHARS(FILE_COLS_MAX)] = { 0 };
 
-	// Format prefixed numbers without prefix and underscores
+	// Number has prefix - format token without prefix and underscores
 	if (value_ind > 0) {
-		if (!str_rm(tok_fmt, &tok[value_ind], len, is_uscore))
+		if (!str_rm(tok_buffer, &tok[value_ind], len - value_ind, is_uscore))
 			return -1;
-
-		tok_in = tok_fmt;
+	// Number has no prefix - copy to ensure only length of string is parsed
 	} else {
-		tok_in = tok;
+		if (!str_copy(tok_buffer, tok, len))
+			return -1;
 	}
 
 	char* tok_end_ptr = NULL;
-	long result = strtol(tok_in, &tok_end_ptr, value_base);
+	long result = strtol(tok_buffer, &tok_end_ptr, value_base);
 
 	// Invalid
 	if (*tok_end_ptr)
@@ -89,24 +92,23 @@ static long parse_number(const char* tok, const size_t len)
 }
 
 /**
- * Get whether token is a valid key.
+ * Get whether token is a valid key definition.
  *
  * @param tok Token to validate.
  * @param len Length of token to validate.
- * @returns Whether token can be a valid key.
+ * @returns Whether token can be a valid key definition.
  */
-static bool key_valid(const char* tok, const size_t len)
+static bool key_def_valid(const char* tok, const size_t len)
 {
-	// Handle NULL pointer
 	if (!tok)
+		return false;
+
+	// Key must be valid length
+	if (len < 1 || len > PARSED_KEY_LEN_MAX)
 		return false;
 
 	// Key must begin with alpha char (A-Z, a-z), or period (.)
 	if (!isalpha(tok[0]) && tok[0] != '.')
-		return false;
-
-	// Key cannot exceed max len
-	if (len > PARSED_KEY_LEN_MAX)
 		return false;
 
 	// Key cannot be A or D (lower case allowed)
@@ -114,9 +116,59 @@ static bool key_valid(const char* tok, const size_t len)
 		return false;
 
 	// Key must only consist of alpha chars (A-Z, a-z), digit chars (0-9), underscores (_), and periods (.)
-	for (size_t ind = 1; ind < len; ind++) {
+	for (size_t ind = 1; ind < len && tok[ind] != '\0'; ind++) {
 		if (!isalnum(tok[ind]) && tok[ind] != '_' && tok[ind] != '.')
 			return false;
+	}
+
+	return true;
+}
+
+/**
+ * Get whether token is a valid key reference.
+ *
+ * @param tok Token to validate.
+ * @param len Length of token to validate.
+ * @returns Whether token can be a valid key reference.
+ */
+static bool key_ref_valid(const char* tok, const size_t len)
+{
+	if (!tok)
+		return false;
+
+	// Key must be valid length
+	if (len < 1 || len > PARSED_KEY_LEN_MAX)
+		return false;
+
+	// Key must begin with alpha char (A-Z, a-z), or period (.)
+	if (!isalpha(tok[0]) && tok[0] != '.')
+		return false;
+
+	// Key cannot be A or D (lower case allowed)
+	if (len == 1 && (tok[0] == 'A' || tok[0] == 'D'))
+		return false;
+
+	bool number_prefix_possible = true;
+
+	for (size_t ind = 0; ind < len && tok[ind] != '\0'; ind++) {
+		// Key cannot begin with underscore (_)
+		if (ind == 0 && tok[ind] == '_')
+			return false;
+
+		// Key must only consist of alpha chars (A-Z, a-z), digit chars (0-9), underscores (_), and periods (.)
+		if (!isalnum(tok[ind]) && tok[ind] != '_' && tok[ind] != '.')
+			return false;
+
+		// Original NandGame assembler does not allow key references to be prefixed with numbers that start with alpha chars (b, x) despite them being allowed for key definitions
+		if (number_prefix_possible) {
+			// Char encountered that indicates key is not prefixed with a number
+			if (!isdigit(tok[ind]) && !(tok[ind] >= 'A' && tok[ind] <= 'F') && !(tok[ind] >= 'a' && tok[ind] <= 'f') && tok[ind] != 'X' && tok[ind] != 'x' && tok[ind] != '_')
+				number_prefix_possible = false;
+
+			// Check whether key is prefixed with a number
+			if (number_prefix_possible && parse_number(tok, ind + 1) >= 0)
+				return false;
+		}
 	}
 
 	return true;
@@ -218,10 +270,11 @@ static bool refs_macro_params_push(struct error* err, struct dynarr* refs_macro_
  * @param key String to copy key result to.
  * @param tok Token to parse.
  * @param tok_len Length of token to parse.
+ * @param valid Validates whether the token is a valid key.
  * @param msg Error message suffix.
  * @returns Whether key was valid and parsed successfully.
  */
-static bool parse_key(struct error* err, char* key, const char* tok, const size_t tok_len, const char* msg)
+static bool parse_key(struct error* err, char* key, const char* tok, const size_t tok_len, bool valid(const char*, const size_t), const char* msg)
 {
 	// Validate token exists
 	if (!tok) {
@@ -230,7 +283,7 @@ static bool parse_key(struct error* err, char* key, const char* tok, const size_
 	}
 
 	// Validate token can be a key
-	if (!key_valid(tok, tok_len)) {
+	if (!valid(tok, tok_len)) {
 		error_init(err, ERRVAL_SYNTAX, "Invalid key given in %s: '%s'", msg, tok);
 		return false;
 	}
@@ -276,7 +329,7 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 			// Key
 			case 1:
 				// Validate key
-				if (!parse_key(err, result.key, tok, tok_len, "DEFINE statement"))
+				if (!parse_key(err, result.key, tok, tok_len, key_def_valid, "DEFINE statement"))
 					return false;
 
 				// Validate no data definition with same key already exists
@@ -361,7 +414,7 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 				}
 
 				// Validate key
-				if (!parse_key(err, result.key, tok, tok_len, "LABEL statement"))
+				if (!parse_key(err, result.key, tok, tok_len, key_def_valid, "LABEL statement"))
 					return false;
 
 				// Validate no data definition with same key already exists
@@ -433,7 +486,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 			// Key
 			case 1:
 				// Validate key
-				if (!parse_key(err, result.key, tok, tok_len, "%MACRO statement"))
+				if (!parse_key(err, result.key, tok, tok_len, key_def_valid, "%MACRO statement"))
 					goto error;
 
 				// Validate no macro definition with same key already exists
@@ -453,7 +506,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 				}
 
 				char param_key[PARSED_KEY_CHARS] = { 0 };
-				if (!parse_key(err, param_key, tok, tok_len, "%MACRO statement"))
+				if (!parse_key(err, param_key, tok, tok_len, key_def_valid, "%MACRO statement"))
 					goto error;
 
 				// Validate parameter key does not already exist
@@ -514,7 +567,7 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 		switch (tok_ind) {
 			// Key
 			case 0:
-				if (!parse_key(err, result.key, tok, tok_len, "macro reference"))
+				if (!parse_key(err, result.key, tok, tok_len, key_ref_valid, "macro reference"))
 					goto error;
 
 				break;
@@ -536,14 +589,14 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 				}
 
 				// Parameter cannot be a data reference
-				if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(tok, tok_len)) {
-					error_init(err, ERRVAL_SYNTAX, "Invalid macro parameter value: '%s'", tok);
+				if (!(features & LANG_FEAT_DEF_DATA)) {
+					error_init(err, ERRVAL_SYNTAX, "Invalid value given in macro reference: '%s'", tok);
 					goto error;
 				}
 
 				// Parse parameter as data reference
 				char ref_data_key[PARSED_KEY_CHARS] = { 0 };
-				if (!parse_key(err, ref_data_key, tok, tok_len, "macro reference"))
+				if (!parse_key(err, ref_data_key, tok, tok_len, key_ref_valid, "macro reference"))
 					goto error;
 
 				// Push data reference result
@@ -915,7 +968,7 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 		return lines_push(err, lines, LINE_INST_E, line_num, (size_t)parsed_number);
 
 	// Data value cannot be a data reference key
-	if (!(features & LANG_FEAT_DEF_DATA) || !key_valid(data_str, data_str_len)) {
+	if (!(features & LANG_FEAT_DEF_DATA) || !key_ref_valid(data_str, data_str_len)) {
 		error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", data_str);
 		return false;
 	}

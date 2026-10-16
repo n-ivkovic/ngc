@@ -1,0 +1,5 @@
+# LABEL key cannot start with number (0-9)
+
+LABEL 0.invalid
+
+A = 0.invalid
