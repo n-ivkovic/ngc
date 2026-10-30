@@ -1,11 +1,8 @@
 #include "assemble_basic.h"
 
 #include "../ngc.h"
-#include "parse.h"
 
-#include <assert.h>
 #include <stdbool.h>
-#include <string.h>
 
 /**
  * Push NGC instruction.
@@ -48,16 +45,16 @@ size_t assemble_file_basic(struct error* err, struct dynarr* instructions, const
 			case LINE_REF_DATA_E:
 				;
 				// Get referenced data key at given index
-				char* data_key = dynarr_get(file.refs_data, line->val);
+				const char (* data_key)[PARSED_KEY_CHARS] = dynarr_get(file.refs_data, line->val);
 				if (!data_key) {
 					error_init(err, ERRVAL_FAILURE, "Data reference index out of range: %zu", line->val);
 					return line->line_num;
 				}
 
 				// Get data definition using referenced data key
-				struct parsed_def_data* def_data = parsed_def_data_get(file.defs_data, data_key);
+				struct parsed_def_data* def_data = parsed_def_data_get(file.defs_data, *data_key);
 				if (!def_data) {
-					error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", data_key);
+					error_init(err, ERRVAL_SYNTAX, "Data reference not defined: '%s'", *data_key);
 					return line->line_num;
 				}
 

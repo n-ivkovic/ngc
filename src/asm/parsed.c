@@ -39,11 +39,8 @@ void parsed_file_alloc(struct parsed_file* file)
 	dynarr_alloc(&file->defs_macros, PARSED_MACROS_ALLOC_LEN, sizeof(struct parsed_def_macro)); // Failure to pre-allocate space is non-critical - not checking return result
 }
 
-struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const char* key)
+struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const char key[PARSED_KEY_CHARS])
 {
-	if (!key)
-		return NULL;
-
 	for (size_t data_ind = 0; data_ind < defs_data.len; data_ind++) {
 		struct parsed_def_data* data = dynarr_get(defs_data, data_ind);
 		if (!data)
@@ -56,11 +53,8 @@ struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const
 	return NULL;
 }
 
-struct parsed_def_macro* parsed_def_macro_get(const struct dynarr defs_macros, const char* key)
+struct parsed_def_macro* parsed_def_macro_get(const struct dynarr defs_macros, const char key[PARSED_KEY_CHARS])
 {
-	if (!key)
-		return NULL;
-
 	for (size_t macro_ind = 0; macro_ind < defs_macros.len; macro_ind++) {
 		struct parsed_def_macro* macro = dynarr_get(defs_macros, macro_ind);
 		if (!macro)

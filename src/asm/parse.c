@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define FILE_LINES_MAX 0x100000
-#define FILE_COLS_MAX (0xFF - 2)
+#define FILE_LINE_LEN (0xFF - 2) // -1 for null-terminator
 
 enum parsed_scope {
 	SCOPE_FILE_E,
@@ -28,8 +28,8 @@ static int is_uscore(int ch) { return ch == '_'; }
  * Parse number, between 0 and NGC_WORD_MAX (0x7FFF) inclusive.
  *
  * @param tok Token to parse.
- * @param len Length of token to parse.
- * @returns Parsed number. -1 if error.
+ * @param len Max length of string to read from token, excluding null-terminator.
+ * @returns Parsed number. Negative value if error.
  */
 static long parse_number(const char* tok, const size_t len)
 {
@@ -37,7 +37,7 @@ static long parse_number(const char* tok, const size_t len)
 		return -1;
 
 	// Token must be valid length
-	if (len < 1 || len > FILE_COLS_MAX)
+	if (len < 1 || len > FILE_LINE_LEN)
 		return -1;
 
 	size_t value_ind = 0;
@@ -65,16 +65,14 @@ static long parse_number(const char* tok, const size_t len)
 		}
 	}
 
-	char tok_buffer[STR_CHARS(FILE_COLS_MAX)] = { 0 };
+	char tok_buffer[STR_CHARS(FILE_LINE_LEN)] = { 0 };
 
 	// Number has prefix - format token without prefix and underscores
 	if (value_ind > 0) {
-		if (!str_rm(tok_buffer, &tok[value_ind], len - value_ind, is_uscore))
-			return -1;
+		str_rm(tok_buffer, &tok[value_ind], len - value_ind, is_uscore);
 	// Number has no prefix - copy to ensure only length of string is parsed
 	} else {
-		if (!str_copy(tok_buffer, tok, len))
-			return -1;
+		str_copy(tok_buffer, tok, len);
 	}
 
 	char* tok_end_ptr = NULL;
@@ -85,7 +83,7 @@ static long parse_number(const char* tok, const size_t len)
 		return -1;
 
 	// Invalid - value out of bounds
-	if (result > NGC_WORD_MAX || result < 0)
+	if (result < 0 || result > NGC_WORD_MAX)
 		return -1;
 
 	return (int)result;
@@ -95,7 +93,7 @@ static long parse_number(const char* tok, const size_t len)
  * Get whether token is a valid key definition.
  *
  * @param tok Token to validate.
- * @param len Length of token to validate.
+ * @param len Max length of string to read from token, excluding null-terminator.
  * @returns Whether token can be a valid key definition.
  */
 static bool key_def_valid(const char* tok, const size_t len)
@@ -104,7 +102,7 @@ static bool key_def_valid(const char* tok, const size_t len)
 		return false;
 
 	// Key must be valid length
-	if (len < 1 || len > PARSED_KEY_LEN_MAX)
+	if (len < 1 || len > PARSED_KEY_LEN)
 		return false;
 
 	// Key must begin with alpha char (A-Z, a-z), or period (.)
@@ -128,7 +126,7 @@ static bool key_def_valid(const char* tok, const size_t len)
  * Get whether token is a valid key reference.
  *
  * @param tok Token to validate.
- * @param len Length of token to validate.
+ * @param len Max length of string to read from token, excluding null-terminator.
  * @returns Whether token can be a valid key reference.
  */
 static bool key_ref_valid(const char* tok, const size_t len)
@@ -137,7 +135,7 @@ static bool key_ref_valid(const char* tok, const size_t len)
 		return false;
 
 	// Key must be valid length
-	if (len < 1 || len > PARSED_KEY_LEN_MAX)
+	if (len < 1 || len > PARSED_KEY_LEN)
 		return false;
 
 	// Key must begin with alpha char (A-Z, a-z), or period (.)
@@ -175,17 +173,14 @@ static bool key_ref_valid(const char* tok, const size_t len)
 }
 
 /**
- * Get index of key in dynamic array.
+ * Get index of parsed key in dynamic array.
  *
- * @param key Key to search for.
- * @param da Dynamic array to search.
- * @returns Index of key in dynamic array. -1 if not found.
+ * @param da Dynamic array of parsed keys.
+ * @param key Parsed key to get.
+ * @returns Index of key in dynamic array. Negative value if not found.
  */
-static long long keys_get(const char* key, const struct dynarr da)
+static long long parsed_key_index(const struct dynarr da, const char key[PARSED_KEY_CHARS])
 {
-	if (!key)
-		return false;
-
 	for (size_t ind = 0; ind < da.len; ind++) {
 		char* val = dynarr_get(da, ind);
 		if (!val)
@@ -225,17 +220,16 @@ static bool lines_push(struct error* err, struct dynarr* lines, const enum parse
  * @param err Struct to store error.
  * @param refs_data Dynamic array to store parsed result.
  * @param key Parsed data key.
- * @param key_size Size of parsed data key.
- * @returns Index parsed result is located at in dynamic array. -1 if error occurred.
+ * @returns Index parsed result is located at in dynamic array. Negative value if error.
  */
-static long long refs_data_push(struct error* err, struct dynarr* refs_data, const char* key, const size_t key_size)
+static long long refs_data_push(struct error* err, struct dynarr* refs_data, const char key[PARSED_KEY_CHARS])
 {
 	// Find if key already exists in data references array
-	long long existing_ind = keys_get(key, *refs_data);
+	long long existing_ind = parsed_key_index(*refs_data, key);
 	if (existing_ind >= 0)
 		return existing_ind;
 
-	if (!dynarr_push(refs_data, key, key_size)) {
+	if (!dynarr_push(refs_data, key, PARSED_KEY_CHARS * sizeof(char))) {
 		error_init(err, ERRVAL_FAILURE, "Failed to push parsed data reference");
 		return -1;
 	}
@@ -269,12 +263,12 @@ static bool refs_macro_params_push(struct error* err, struct dynarr* refs_macro_
  * @param err Struct to store error.
  * @param key String to copy key result to.
  * @param tok Token to parse.
- * @param tok_len Length of token to parse.
+ * @param tok_len Max length of string to read from token, excluding null-terminator.
  * @param valid Validates whether the token is a valid key.
  * @param msg Error message suffix.
  * @returns Whether key was valid and parsed successfully.
  */
-static bool parse_key(struct error* err, char* key, const char* tok, const size_t tok_len, bool valid(const char*, const size_t), const char* msg)
+static bool parse_key(struct error* err, char key[PARSED_KEY_CHARS], const char* tok, const size_t tok_len, bool valid(const char*, const size_t), const char* msg)
 {
 	// Validate token exists
 	if (!tok) {
@@ -288,13 +282,10 @@ static bool parse_key(struct error* err, char* key, const char* tok, const size_
 		return false;
 	}
 
-	assert(tok_len <= PARSED_KEY_LEN_MAX);
+	assert(tok_len <= PARSED_KEY_LEN);
 
 	// Copy token to key result
-	if (!str_copy(key, tok, tok_len)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-		return false;
-	}
+	str_copy(key, tok, tok_len);
 
 	return true;
 }
@@ -322,8 +313,14 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 		size_t tok_len = (tok) ? strlen(tok) : 0;
 
 		switch (tok_ind) {
-			// DEFINE keyword - verified outside this function
+			// DEFINE keyword
 			case 0:
+				// Error should not ever happen as keyword is validated before this function
+				if (str_comp("DEFINE", tok, tok_len, NULL) != 0) {
+					error_init(err, ERRVAL_SYNTAX, "DEFINE keyword must be first word in statement");
+					return false;
+				}
+
 				break;
 
 			// Key
@@ -396,13 +393,20 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 	struct parsed_def_data result = { .type = DATA_LABEL_E, .line_num = line_num, .val = inst_num };
 	bool colon = false;
 
+	// Parse one token at a time
 	for (size_t tok_ind = 0; tok_ind <= TOKS_LABEL_LEN; tok_ind++) {
 		char* tok = dynarr_get(line_toks, tok_ind);
 		size_t tok_len = (tok) ? strlen(tok) : 0;
 
 		switch (tok_ind) {
-			// LABEL keyword - verified outside this function
+			// LABEL keyword
 			case 0:
+				// Error should not ever happen as keyword is validated before this function
+				if (str_comp("LABEL", tok, tok_len, NULL) != 0) {
+					error_init(err, ERRVAL_SYNTAX, "LABEL keyword must be first word in statement");
+					return false;
+				}
+
 				break;
 
 			// Key
@@ -474,13 +478,20 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 	struct parsed_def_macro result = { .line_num = line_num };
 	parsed_def_macro_alloc(&result);
 
+	// Parse one token at a time
 	for (size_t tok_ind = 0; tok_ind < line_toks.len || tok_ind < TOKS_DEF_MACRO_MIN; tok_ind++) {
 		char* tok = dynarr_get(line_toks, tok_ind);
 		size_t tok_len = (tok) ? strlen(tok) : 0;
 
 		switch (tok_ind) {
-			// %MACRO keyword - verified outside this function
+			// %MACRO keyword
 			case 0:
+				// Error should not ever happen as keyword is validated before this function
+				if (str_comp("%MACRO", tok, tok_len, NULL) != 0) {
+					error_init(err, ERRVAL_SYNTAX, "%%MACRO keyword must be first word in statement");
+					return false;
+				}
+
 				break;
 
 			// Key
@@ -501,7 +512,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 			// Parameters
 			default:
 				if (!(features & LANG_FEAT_DEF_MACRO_PARAMS)) {
-					error_init(err, ERRVAL_SYNTAX, "Invalid value given in %MACRO statement: '%s'", tok);
+					error_init(err, ERRVAL_SYNTAX, "Invalid value given in %%MACRO statement: '%s'", tok);
 					goto error;
 				}
 
@@ -510,7 +521,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 					goto error;
 
 				// Validate parameter key does not already exist
-				if (keys_get(param_key, result.params) >= 0) {
+				if (parsed_key_index(result.params, param_key) >= 0) {
 					error_init(err, ERRVAL_SYNTAX, "Conflicting parameter keys given in %%MACRO statement: '%s'", tok);
 					goto error;
 				}
@@ -600,7 +611,7 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 					goto error;
 
 				// Push data reference result
-				long long ref_data_ind = refs_data_push(err, refs_data, ref_data_key, sizeof(ref_data_key));
+				long long ref_data_ind = refs_data_push(err, refs_data, ref_data_key);
 				if (ref_data_ind < 0)
 					goto error;
 
@@ -634,11 +645,12 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
  * Parse single target of ALU instruction assembly.
  *
  * @param tok Token to parse.
- * @returns NGC ALU instruction bit indicating target. -1 if error.
+ * @param len Max length of string to read from token, excluding null-terminator.
+ * @returns NGC ALU instruction bit indicating target. Negative value if error.
  */
-static long parse_inst_alu_target(const char* tok)
+static long parse_inst_alu_target(const char* tok, const size_t len)
 {
-	switch (str_ull(tok)) {
+	switch (str_ull(tok, len)) {
 		case 0x0041: // A
 			return NGC_IN_TARGET_A;
 		case 0x0044: // D
@@ -654,29 +666,31 @@ static long parse_inst_alu_target(const char* tok)
  * Parse targets of ALU instruction assembly.
  *
  * @param tok Token to parse.
- * @param len Length of token to parse.
- * @returns NGC ALU instruction bits indicating targets (bits 4-6). -1 if error.
+ * @param len Max length of string to read from token, excluding null-terminator.
+ * @returns NGC ALU instruction bits indicating targets (bits 4-6). Negative value if error.
  */
 static long parse_inst_alu_targets(const char* tok, const size_t len)
 {
-	// Invalid - null input
 	if (!tok)
 		return -1;
 
+	// Token must be valid length
+	if (len < 1 || len > FILE_LINE_LEN)
+		return -1;
+
 	#define TOK_TARGET_SEP ","
-	#define TOK_TARGET_SEP_LEN strlen(TOK_TARGET_SEP)
+	#define TOK_TARGET_SEP_LEN 1
 
 	// Copy token - Allows const token to be passed to strtok
-	char tok_copy[STR_CHARS(FILE_COLS_MAX)] = { 0 };
-	if (!str_copy(tok_copy, tok, len))
-		return -1;
+	char tok_copy[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+	str_copy(tok_copy, tok, len);
 
 	int result = 0;
 	size_t parsed_len = 0;
 	char* target = strtok(tok_copy, TOK_TARGET_SEP);
 
 	while (target) {
-		int target_parsed = parse_inst_alu_target(target);
+		int target_parsed = parse_inst_alu_target(target, strlen(target));
 
 		// Invalid target
 		if (target_parsed < 0)
@@ -705,11 +719,12 @@ static long parse_inst_alu_targets(const char* tok, const size_t len)
  * Parse operation of ALU instruction assembly.
  *
  * @param tok Token to parse.
- * @returns NGC ALU instruction bits indicating operation (bits 7-13). -1 if error.
+ * @param len Max length of string to read from token, excluding null-terminator.
+ * @returns NGC ALU instruction bits indicating operation (bits 7-13). Negative value if error.
  */
-static long parse_inst_alu_opr(const char* tok)
+static long parse_inst_alu_opr(const char* tok, const size_t len)
 {
-	switch (str_ull(tok)) {
+	switch (str_ull(tok, len)) {
 		case 0x00000030: // 0
 			return NGC_IN_OPR_ZX;
 		case 0x00000031: // 1
@@ -779,11 +794,12 @@ static long parse_inst_alu_opr(const char* tok)
  * Parse jump condition of ALU instruction assembly.
  *
  * @param tok Token to parse.
- * @returns NGC ALU instruction bits indicating jump condition (bits 1-3). -1 if error.
+ * @param len Max length of string to read from token, excluding null-terminator.
+ * @returns NGC ALU instruction bits indicating jump condition (bits 1-3). Negative value if error.
  */
-static long parse_inst_alu_jump(const char* tok)
+static long parse_inst_alu_jump(const char* tok, const size_t len)
 {
-	switch (str_ull(tok)) {
+	switch (str_ull(tok, len)) {
 		case 0x4A4754: // JGT
 			return NGC_IN_JUMP_GT;
 		case 0x4A4551: // JEQ
@@ -809,8 +825,8 @@ static long parse_inst_alu_jump(const char* tok)
  * @param err Struct to store error.
  * @param lines Dynamic array to push parsed result.
  * @param line_num Number of line in file.
- * @param line_st Assembly line with whitespace stripped.
- * @param line_len Length of assembly line.
+ * @param line_st Assembly line with all whitespace removed.
+ * @param line_len Length of assembly line, excluding null-terminator.
  * @param features Enabled assembly language features.
  * @returns Enum value indicating whether ALU instruction was valid and parsed successfully, or hint if file line could be another kind of instruction.
  */
@@ -822,9 +838,9 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	assert(lines);
 
 	// Special syntax case - line can be JMP only
-	if (strncmp(line_st, "JMP", line_len) == 0) {
+	if (str_comp("JMP", line_st, line_len, NULL) == 0) {
 		// Original NandGame assembler sets operation bits of instruction to "-1"
-		if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)(NGC_IN_ALU | NGC_IN_OPR_NEG1 | NGC_IN_JUMP_LT | NGC_IN_JUMP_EQ | NGC_IN_JUMP_GT)))
+		if (!lines_push(err, lines, LINE_INST_E, line_num, NGC_IN_ALU | NGC_IN_OPR_NEG1 | NGC_IN_JUMP_LT | NGC_IN_JUMP_EQ | NGC_IN_JUMP_GT))
 			return ALU_INST_FAILURE_E;
 
 		return ALU_INST_SUCCESS_E;
@@ -844,8 +860,9 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	// Equals char found - syntax expected to be "[Target] = [Operation] [...]"
 	// Parse ALU target
 	if (line_equals_ptr) {
-		tok_opr_ind = (int)(line_equals_ptr - line_st) + 1; // Char after '='
-		int tok_target_len = tok_opr_ind - 1;
+		assert(line_equals_ptr >= line_st);
+		tok_opr_ind = (line_equals_ptr - line_st) + 1; // Char after '='
+		int tok_target_len = (int)tok_opr_ind - 1;
 
 		// Syntax error - no chars before '='
 		if (tok_target_len < 1) {
@@ -854,11 +871,10 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 		}
 
 		// Copy target token to new string
-		char tok_target[STR_CHARS(FILE_COLS_MAX)] = { 0 };
-		if (!str_copy(tok_target, line_st, tok_target_len)) {
-			error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-			return ALU_INST_FAILURE_E;
-		}
+		char tok_target[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+		size_t tok_target_copy_result = str_copy(tok_target, line_st, tok_target_len);
+		assert(tok_target_copy_result <= (size_t)tok_target_len);
+		tok_target_len = (int)tok_target_copy_result;
 
 		// Parse target
 		inst_target = parse_inst_alu_targets(tok_target, tok_target_len);
@@ -873,7 +889,8 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	// Semicolon char found - syntax expected to be "[...] [Operation] ; [Jump]"
 	// Parse ALU jump condition
 	if (line_semicol_ptr) {
-		int tok_jump_ind = (int)(line_semicol_ptr - line_st) + 1; // Char after ';'
+		assert(line_semicol_ptr >= line_st);
+		size_t tok_jump_ind = (line_semicol_ptr - line_st) + 1; // Char after ';'
 		int tok_jump_len = line_len - tok_jump_ind;
 
 		// Syntax error - no chars after ';'
@@ -885,14 +902,13 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 		tok_opr_len = tok_opr_len - tok_jump_len - 1;
 
 		// Copy jump condition token to new string
-		char tok_jump[STR_CHARS(FILE_COLS_MAX)] = { 0 };
-		if (!str_copy(tok_jump, &line_st[tok_jump_ind], tok_jump_len)) {
-			error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-			return ALU_INST_FAILURE_E;
-		}
+		char tok_jump[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+		size_t tok_jump_copy_result = str_copy(tok_jump, &line_st[tok_jump_ind], tok_jump_len);
+		assert(tok_jump_copy_result <= (size_t)tok_jump_len);
+		tok_jump_len = (int)tok_jump_copy_result;
 
 		// Parse jump condition
-		inst_jump = parse_inst_alu_jump(tok_jump);
+		inst_jump = parse_inst_alu_jump(tok_jump, tok_jump_len);
 		if (inst_jump < 0) {
 			error_init(err, ERRVAL_SYNTAX, "Invalid jump condition: '%s'", tok_jump);
 			return ALU_INST_FAILURE_E;
@@ -900,14 +916,13 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	}
 
 	// Copy ALU operation token to new string
-	char tok_opr[STR_CHARS(FILE_COLS_MAX)] = { 0 };
-	if (!str_copy(tok_opr, &line_st[tok_opr_ind], tok_opr_len)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-		return ALU_INST_FAILURE_E;
-	}
+	char tok_opr[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+	size_t tok_opr_copy_result = str_copy(tok_opr, &line_st[tok_opr_ind], tok_opr_len);
+	assert(tok_opr_copy_result <= tok_opr_len);
+	tok_opr_len = tok_opr_copy_result;
 
 	// Parse ALU operation
-	inst_opr = parse_inst_alu_opr(tok_opr);
+	inst_opr = parse_inst_alu_opr(tok_opr, tok_opr_len);
 	if (inst_opr >= 0) {
 		if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)(NGC_IN_ALU | inst_opr | inst_target | inst_jump)))
 			return ALU_INST_FAILURE_E;
@@ -916,7 +931,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	}
 
 	// ALU operation invalid - return hint if file line could be another kind of instruction
-	if (!line_semicol_ptr && parse_inst_alu_jump(tok_opr) < 0) {
+	if (!line_semicol_ptr && parse_inst_alu_jump(tok_opr, tok_opr_len) < 0) {
 		// Line could be a data instruction - "A = [...]"
 		if (line_equals_ptr && inst_target == NGC_IN_TARGET_A)
 			return ALU_INST_HINT_INST_DATA_E;
@@ -938,8 +953,8 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
  * @param lines Dynamic array to push parsed result.
  * @param refs_data Dynamic array to push parsed result.
  * @param line_num Number of line in file.
- * @param line_tr Assembly line with whitespace trimmed.
- * @param line_len Length of assembly line.
+ * @param line_tr Assembly line with leading and trailing whitespace trimmed.
+ * @param line_len Length of assembly line, excluding null-terminator.
  * @param features Enabled assembly language features.
  * @returns Whether data instruction was valid and parsed successfully.
  */
@@ -953,14 +968,10 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 		return false;
 	}
 
-	// Get string after '=' char and trim - use as value for data instruction
-	char data_str[STR_CHARS(FILE_COLS_MAX)] = { 0 };
-	if (!str_trim(data_str, line_equals_ptr + 1, line_len)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to trim whitespace from string");
-		return false;
-	}
-
-	size_t data_str_len = strlen(data_str);
+	// Get string after '=' char and trim whitespace - use as value for data instruction
+	char data_str[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+	size_t data_str_len = str_trim(data_str, line_equals_ptr + 1, line_len, isspace);
+	assert(data_str_len <= line_len);
 
 	// Try parse data value as number
 	long parsed_number = parse_number(data_str, data_str_len);
@@ -973,21 +984,20 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 		return false;
 	}
 
+	assert(data_str_len <= PARSED_KEY_LEN);
+
 	// Original NandGame assembler does not allow data reference key of uppercase 'LABEL', despite it being a valid data key that cannot conflict with LABEL keyword
-	if (strncmp("LABEL", data_str, STR_CHARS(data_str_len)) == 0) {
+	if (str_comp("LABEL", data_str, data_str_len, NULL) == 0) {
 		error_init(err, ERRVAL_SYNTAX, "LABEL keyword must be first word in statement");
 		return false;
 	}
 
-	// Ensure key is null-terminated
+	// Build data reference result
 	char data_key[PARSED_KEY_CHARS] = { 0 };
-	if (!str_copy(data_key, data_str, data_str_len)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-		return false;
-	}
+	str_copy(data_key, data_str, data_str_len);
 
 	// Push data reference result
-	long long ref_data_ind = refs_data_push(err, refs_data, data_key, sizeof(data_key));
+	long long ref_data_ind = refs_data_push(err, refs_data, data_key);
 	if (ref_data_ind < 0)
 		return false;
 
@@ -1004,7 +1014,7 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
  * @param scope Scope assembly line is being parsed within.
  * @param line_num Number of line in file.
  * @param line Assembly line.
- * @param line_len Length of assembly line.
+ * @param line_len Length of assembly line, excluding null-terminator.
  * @param features Enabled assembly language features.
  * @returns Whether line was valid and parsed successfully.
  */
@@ -1014,48 +1024,36 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 	assert(scope);
 
 	bool success = false;
-
-	char line_tr[STR_CHARS(FILE_COLS_MAX)] = { 0 };
-	char line_st[STR_CHARS(FILE_COLS_MAX)] = { 0 };
-
 	struct dynarr line_toks = { 0 };
 
 	// Trim whitespace from line
-	if (!str_trim(line_tr, line, line_len)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to trim whitespace from string");
-		goto exit;
-	}
-
-	size_t line_tr_len = strlen(line_tr);
+	char line_tr[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+	size_t line_tr_len = str_trim(line_tr, line, line_len, isspace);
+	assert(line_tr_len <= line_len);
 
 	// Skip line if empty or comment
-	if (line_tr[0] == '#' || line_tr[0] == '\0') {
+	if (line_tr_len < 1 || line_tr[0] == '#' || line_tr[0] == '\0') {
 		success = true;
 		goto exit;
 	}
 
 	if (features > 0) {
 		// Build array of tokens in line
-		if (!str_split(&line_toks, line_tr, line_tr_len, WHITESPACE)) {
+		if (str_split(&line_toks, line_tr, line_tr_len, WHITESPACE) < 0) {
 			error_init(err, ERRVAL_FAILURE, "Failed to split string");
 			goto exit;
 		}
 
 		// Copy first token
-		char line_tok_first[STR_CHARS(STRULL_MAX_LEN)] = { 0 };
-		if (!str_copy(line_tok_first, (char*)dynarr_get(line_toks, 0), STRULL_MAX_LEN)) {
-			error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-			goto exit;
-		}
+		char line_tok_first[STR_CHARS(STRULL_LEN)] = { 0 };
+		size_t line_tok_first_len = str_copy(line_tok_first, dynarr_get(line_toks, 0), STRULL_LEN);
+		assert(line_tok_first_len <= STRULL_LEN);
 
 		// Convert first token to uppercase
-		if (!str_to(line_tok_first, line_tok_first, STRULL_MAX_LEN, toupper)) {
-			error_init(err, ERRVAL_FAILURE, "Failed to convert string to uppercase");
-			goto exit;
-		}
+		str_to(line_tok_first, line_tok_first, line_tok_first_len, toupper);
 
-		// Parse line as non-instruction based on keyword
-		switch (str_ull(line_tok_first)) {
+		// Parse line as non-instruction based on keyword in first token
+		switch (str_ull(line_tok_first, line_tok_first_len)) {
 			// DEFINE
 			case 0x444546494E45:
 				if (!(features & LANG_FEAT_DEF_DATA))
@@ -1078,7 +1076,7 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 					break;
 
 				// %MACRO statement only allowed in main scope
-				if (*scope != SCOPE_FILE_E || !defs_macros) {
+				if (*scope != SCOPE_FILE_E) {
 					error_init(err, ERRVAL_SYNTAX, "Nested %%MACRO statements not allowed");
 					goto exit;
 				}
@@ -1113,12 +1111,8 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 	}
 
 	// Remove all whitespace from line
-	if (!str_rm(line_st, line_tr, line_tr_len, isspace)) {
-		error_init(err, ERRVAL_FAILURE, "Failed to remove whitespace from string");
-		goto exit;
-	}
-
-	size_t line_st_len = strlen(line_st);
+	char line_st[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+	size_t line_st_len = str_rm(line_st, line_tr, line_tr_len, isspace);
 	assert(line_st_len <= line_tr_len);
 
 	// Try parse line as ALU instruction
@@ -1159,7 +1153,7 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 		return 1;
 	}
 
-	char f_line[STR_CHARS(FILE_COLS_MAX + 1)] = { 0 }; // +1 to detect when max exceeded
+	char f_line[STR_CHARS(FILE_LINE_LEN + 1)] = { 0 }; // +1 to detect when max exceeded
 	size_t line_num = 0;
 
 	// Initialise scope - set to file
@@ -1168,7 +1162,7 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 	struct dynarr* defs_macros = &file->defs_macros;
 
 	// Parse each line of file
-	while (fgets(f_line, sizeof(f_line), fp) != 0 && line_num <= FILE_LINES_MAX) {
+	while (fgets(f_line, sizeof(f_line), fp) != NULL && line_num <= FILE_LINES_MAX) {
 		line_num++;
 
 		// Check if too many lines in file
@@ -1180,8 +1174,8 @@ size_t parse_file(struct error* err, struct parsed_file* file, FILE* fp, const i
 		size_t f_line_len = strlen(f_line);
 
 		// Check if too many chars in line
-		if (f_line_len > FILE_COLS_MAX) {
-			error_init(err, ERRVAL_FILE, "File contains too many columns (max %zu)", FILE_COLS_MAX);
+		if (f_line_len > FILE_LINE_LEN) {
+			error_init(err, ERRVAL_FILE, "File contains too many columns (max %zu)", FILE_LINE_LEN);
 			return line_num;
 		}
 

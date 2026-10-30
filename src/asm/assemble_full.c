@@ -1,11 +1,9 @@
 #include "assemble_full.h"
 
 #include "../ngc.h"
-#include "parse.h"
 
 #include <assert.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define MACRO_DEPTH_MAX 0x200
@@ -214,17 +212,14 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 					// Iterate through macro parameter definitions and references
 					for (size_t param_ind = 0; param_ind < ref_macro->params.len && param_ind < def_macro->params.len; param_ind++) {
 						struct parsed_ref_macro_param* param_ref = dynarr_get(ref_macro->params, param_ind);
-						char* param_def = dynarr_get(def_macro->params, param_ind);
+						char (* param_def)[PARSED_KEY_CHARS] = dynarr_get(def_macro->params, param_ind);
 
 						if (!param_ref || !param_def)
 							continue;
 
 						// Assemble expanded macro parameter
 						struct expanded_macro_param param = { .type = param_ref->type, .val = param_ref->val };
-						if (!str_copy(param.key, param_def, STR_CHARS(strlen(param_def)))) {
-							error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-							return line->line_num;
-						}
+						memcpy(param.key, param_def, sizeof(*param_def));
 
 						// Push expanded macro parameter
 						if (!dynarr_push(&macro_expanded_init.params, &param, sizeof(param))) {
@@ -311,10 +306,7 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
 
 				// Assemble copy of data definition with program counter offset added
 				struct parsed_def_data data_offset = { .type = data->type, .line_num = data->line_num, .val = data->val + pc_offset };
-				if (!str_copy(data_offset.key, data->key, STR_SIZE(strlen(data->key)))) {
-					error_init(err, ERRVAL_FAILURE, "Failed to copy string");
-					return data->line_num;
-				}
+				memcpy(data_offset.key, data->key, sizeof(data->key));
 
 				// Push data definition
 				if (!dynarr_push(&expanded->defs_data, &data_offset, sizeof(data_offset))) {
@@ -344,8 +336,9 @@ static size_t expand_parsed(struct error* err, struct expanded_base* expanded, c
  * @param key Key of data reference to get.
  * @returns 0 if successfully assembled. >0 line number if error.
  */
-static size_t assemble_ref_data(struct error* err, size_t* data_val, const struct expanded_base expanded, const struct expanded_base* root, const size_t line_num, const char* key)
+static size_t assemble_ref_data(struct error* err, size_t* data_val, const struct expanded_base expanded, const struct expanded_base* root, const size_t line_num, const char (* key)[PARSED_KEY_CHARS])
 {
+	assert(data_val);
 	assert(key);
 
 	if (root) {
@@ -357,7 +350,7 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 
 	// Try find macro parameter with matching key
 	if (expanded.parent && expanded.params.len > 0) {
-		struct expanded_macro_param* macro_param = expanded_macro_param_get(expanded.params, key);
+		struct expanded_macro_param* macro_param = expanded_macro_param_get(expanded.params, *key);
 		if (macro_param) {
 			switch (macro_param->type) {
 				case PARAM_CONST_E:
@@ -367,7 +360,7 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 				case PARAM_REF_DATA_E:
 					;
 					// Get data key passed as macro parameter
-					char* parent_key = dynarr_get(expanded.parent->refs_data, macro_param->val);
+					const char (* parent_key)[PARSED_KEY_CHARS] = dynarr_get(expanded.parent->refs_data, macro_param->val);
 					if (!parent_key) {
 						error_init(err, ERRVAL_FAILURE, "Data reference index out of range: %zu", macro_param->val);
 						return line_num;
@@ -384,7 +377,7 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 	}
 
 	// Key does not refer to any macro parameter - get data definition within current scope with matching key
-	struct parsed_def_data* data = parsed_def_data_get(expanded.defs_data, key);
+	struct parsed_def_data* data = parsed_def_data_get(expanded.defs_data, *key);
 
 	// No other scope to check (currently within root/file scope) - return data found within current scope
 	if (data && !root) {
@@ -394,7 +387,7 @@ static size_t assemble_ref_data(struct error* err, size_t* data_val, const struc
 
 	if (root) {
 		// Get data definition within root/file scope with matching key
-		struct parsed_def_data* data_root = parsed_def_data_get(root->defs_data, key);
+		struct parsed_def_data* data_root = parsed_def_data_get(root->defs_data, *key);
 
 		// No data found in root/file scope - return data found within current scope
 		if (data && !data_root) {
@@ -468,7 +461,7 @@ static size_t assemble_expanded(struct error* err, struct dynarr* instructions, 
 			case LINE_REF_DATA_E:
 				;
 				// Get referenced data key at given index
-				char* data_key = dynarr_get(expanded.refs_data, line->val);
+				const char (* data_key)[PARSED_KEY_CHARS] = dynarr_get(expanded.refs_data, line->val);
 				if (!data_key) {
 					error_init(err, ERRVAL_FAILURE, "Data reference index out of range: %zu", line->val);
 					return line->line_num;

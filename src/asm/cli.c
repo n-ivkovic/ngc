@@ -14,7 +14,9 @@
 #include <unistd.h>
 
 #define PATH_STDIN "-"
+#define PATH_STDIN_LEN 1
 #define PATH_STDOUT "-"
+#define PATH_STDOUT_LEN 1
 
 /**
  * Print error associated with file.
@@ -102,7 +104,7 @@ int main(int argc, char* argv[])
 		in_path = argv[optind];
 	}
 
-	bool in_stdin = !in_path || strncmp(in_path, PATH_STDIN, STR_CHARS(strlen(PATH_STDIN))) == 0;
+	bool in_stdin = !in_path || str_comp(in_path, PATH_STDIN, PATH_STDIN_LEN, NULL) == 0;
 	char* in_name = in_stdin ? PATH_STDIN : in_path;
 
 	// Open input file
@@ -144,7 +146,7 @@ int main(int argc, char* argv[])
 		return err.val;
 	}
 
-	bool out_stdout = !out_path || strncmp(out_path, PATH_STDOUT, STR_CHARS(strlen(PATH_STDOUT))) == 0;
+	bool out_stdout = !out_path || str_comp(out_path, PATH_STDOUT, PATH_STDOUT_LEN, NULL) == 0;
 	char* out_name = out_stdout ? PATH_STDOUT : out_path;
 
 	// Open output file

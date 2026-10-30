@@ -6,10 +6,9 @@
 
 #include <ctype.h>
 
-#define PARSED_KEY_LEN_MAX 0x3F
-#define PARSED_KEY_CHARS STR_CHARS(PARSED_KEY_LEN_MAX)
-#define PARSED_KEY_SIZE STR_SIZE(PARSED_KEY_LEN_MAX)
-#define PARSED_KEYS_EQ(k1, k2) (str_comp(k1, k2, PARSED_KEY_LEN_MAX, tolower) == 0)
+#define PARSED_KEY_LEN 0x3F
+#define PARSED_KEY_CHARS STR_CHARS(PARSED_KEY_LEN)
+#define PARSED_KEYS_EQ(k1, k2) (str_comp(k1, k2, PARSED_KEY_LEN, tolower) == 0)
 
 /**
  * Type of parsed assembly line.
@@ -121,7 +120,7 @@ void parsed_file_alloc(struct parsed_file* file);
  * @param key Key of data definition to get.
  * @returns Pointer to data definition. NULL if not found.
  */
-struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const char* key);
+struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const char key[PARSED_KEY_CHARS]);
 
 /**
  * Get parsed macro definition from array using key.
@@ -130,7 +129,7 @@ struct parsed_def_data* parsed_def_data_get(const struct dynarr defs_data, const
  * @param key Key of macro definition to get.
  * @returns Pointer to parsed macro definition. NULL if not found.
  */
-struct parsed_def_macro* parsed_def_macro_get(const struct dynarr defs_macros, const char* key);
+struct parsed_def_macro* parsed_def_macro_get(const struct dynarr defs_macros, const char key[PARSED_KEY_CHARS]);
 
 /**
  * Free values within parsed macro reference.
