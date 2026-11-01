@@ -23,6 +23,14 @@ macro.UPPER 0x5550
 macro.lower 0x6C6F
 macro.mIxEd 0x4D69
 
+# MACRO parameter key supports up to 63 characters
+
+%MACRO macro.max abc456789012345678901234567890123456789012345678901234567890123
+	A = abc456789012345678901234567890123456789012345678901234567890123
+%END
+
+macro.max 0x7FFF
+
 # MACRO parameter key supports '.' char in any position
 
 %MACRO macro.. .
