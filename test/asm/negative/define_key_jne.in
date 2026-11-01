@@ -3,6 +3,6 @@
 # - ALU jump operation can only be UPPER CASE
 # - DEFINE key reference can conflict with ALU jump condition only when UPPER CASE
 
-EFINE jne 0x7FFF
+DEFINE jne 0x7FFF
 
 A = JNE
