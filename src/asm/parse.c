@@ -316,7 +316,7 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 			// DEFINE keyword
 			case 0:
 				// Error should not ever happen as keyword is validated before this function
-				if (str_comp("DEFINE", tok, tok_len, NULL) != 0) {
+				if (str_comp("DEFINE", tok, tok_len, toupper) != 0) {
 					error_init(err, ERRVAL_SYNTAX, "DEFINE keyword must be first word in statement");
 					return false;
 				}
@@ -402,7 +402,7 @@ static bool parse_def_data_label(struct error* err, struct dynarr* defs_data, co
 			// LABEL keyword
 			case 0:
 				// Error should not ever happen as keyword is validated before this function
-				if (str_comp("LABEL", tok, tok_len, NULL) != 0) {
+				if (str_comp("LABEL", tok, tok_len, toupper) != 0) {
 					error_init(err, ERRVAL_SYNTAX, "LABEL keyword must be first word in statement");
 					return false;
 				}
@@ -487,7 +487,7 @@ static bool parse_def_macro(struct error* err, struct dynarr* defs_macros, const
 			// %MACRO keyword
 			case 0:
 				// Error should not ever happen as keyword is validated before this function
-				if (str_comp("%MACRO", tok, tok_len, NULL) != 0) {
+				if (str_comp("%MACRO", tok, tok_len, toupper) != 0) {
 					error_init(err, ERRVAL_SYNTAX, "%%MACRO keyword must be first word in statement");
 					return false;
 				}
