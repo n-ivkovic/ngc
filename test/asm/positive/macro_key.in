@@ -3,12 +3,12 @@
 %MACRO UPPER
 	A = 0x5550
 %END
-%MACRO lower
+%macro lower
 	A = 0x6C6F
-%END
-%MACRO mIxEd
+%end
+%mAcRo mIxEd
 	A = 0X4D69
-%END
+%eNd
 
 UPPER
 upper

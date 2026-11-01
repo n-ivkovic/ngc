@@ -1,0 +1,4 @@
+DEFINE conflicting 123
+DEFINE CONFLICTING 456
+
+A = conflicting

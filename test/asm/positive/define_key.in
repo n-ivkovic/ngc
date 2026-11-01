@@ -1,8 +1,8 @@
 # DEFINE key references are case-insensitive
 
 DEFINE UPPER 0x5550
-DEFINE lower 0x6C6F
-DEFINE mIxEd 0x4D69
+define lower 0x6C6F
+dEfInE mIxEd 0x4D69
 
 A = UPPER
 A = upper

@@ -6,18 +6,18 @@
 	A = Upper
 	A = uPpEr
 %END
-%MACRO macro.lower lower
+%macro macro.lower lower
 	A = LOWER
 	A = lower
 	A = Lower
 	A = lOwEr
-%END
-%MACRO macro.mIxEd mIxEd
+%end
+%mAcRo macro.mIxEd mIxEd
 	A = MIXED
 	A = mixed
 	A = Mixed
 	A = mIxEd
-%END
+%eNd
 
 macro.UPPER 0x5550
 macro.lower 0x6C6F

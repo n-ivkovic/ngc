@@ -5,12 +5,12 @@ A = UPPER
 A = upper
 A = Upper
 A = uPpEr
-LABEL lower
+label lower
 A = LOWER
 A = lower
 A = Lower
 A = lOwEr
-LABEL mIxEd
+lAbEl mIxEd
 A = MIXED
 A = mixed
 A = Mixed

@@ -1,0 +1,5 @@
+%MACRO macro conflicting CONFLICTING
+	A = conflicting
+%END
+
+macro 12345
