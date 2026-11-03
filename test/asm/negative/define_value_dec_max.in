@@ -1,0 +1,2 @@
+DEFINE invalid 32768
+A = invalid
