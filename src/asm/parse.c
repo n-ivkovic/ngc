@@ -353,6 +353,7 @@ static bool parse_def_data_define(struct error* err, struct dynarr* defs_data, c
 					return false;
 				}
 
+				assert(parsed_number <= NGC_WORD_MAX);
 				result.val = parsed_number;
 				break;
 
@@ -593,6 +594,7 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 				// Try parse parameter as number
 				long parsed_number = parse_number(tok, tok_len);
 				if (parsed_number >= 0) {
+					assert(parsed_number <= NGC_WORD_MAX);
 					if (!refs_macro_params_push(err, &result.params, PARAM_CONST_E, (size_t)parsed_number))
 						goto error;
 
@@ -644,13 +646,13 @@ static bool parse_ref_macro(struct error* err, struct dynarr* lines, struct dyna
 /**
  * Parse single target of ALU instruction assembly.
  *
- * @param tok Token to parse.
+ * @param tok_tr Token to parse with leading and trailing whitespace trimmed.
  * @param len Max length of string to read from token, excluding null-terminator.
  * @returns NGC ALU instruction bit indicating target. Negative value if error.
  */
-static long parse_inst_alu_target(const char* tok, const size_t len)
+static long parse_inst_alu_target(const char* tok_tr, const size_t len)
 {
-	switch (str_ull(tok, len)) {
+	switch (str_ull(tok_tr, len)) {
 		case 0x0041: // A
 			return NGC_IN_TARGET_A;
 		case 0x0044: // D
@@ -671,15 +673,15 @@ static long parse_inst_alu_target(const char* tok, const size_t len)
  */
 static long parse_inst_alu_targets(const char* tok, const size_t len)
 {
+	#define TOK_TARGET_SEP ","
+	#define TOK_TARGET_SEP_LEN 1
+
 	if (!tok)
 		return -1;
 
 	// Token must be valid length
 	if (len < 1 || len > FILE_LINE_LEN)
 		return -1;
-
-	#define TOK_TARGET_SEP ","
-	#define TOK_TARGET_SEP_LEN 1
 
 	// Copy token - Allows const token to be passed to strtok
 	char tok_copy[STR_CHARS(FILE_LINE_LEN)] = { 0 };
@@ -690,7 +692,15 @@ static long parse_inst_alu_targets(const char* tok, const size_t len)
 	char* target = strtok(tok_copy, TOK_TARGET_SEP);
 
 	while (target) {
-		int target_parsed = parse_inst_alu_target(target, strlen(target));
+		size_t target_len = strlen(target);
+
+		// Trim leading and trailing whitespace from target
+		char target_tr[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+		size_t target_tr_len = str_trim(target_tr, target, target_len, isspace);
+		assert(target_tr_len <= target_len);
+
+		// Parse target
+		int target_parsed = parse_inst_alu_target(target_tr, target_tr_len);
 
 		// Invalid target
 		if (target_parsed < 0)
@@ -700,7 +710,7 @@ static long parse_inst_alu_targets(const char* tok, const size_t len)
 		if (target_parsed & result)
 			return -1;
 
-		parsed_len += strlen(target);
+		parsed_len += target_len;
 		result |= target_parsed;
 
 		target = strtok(NULL, TOK_TARGET_SEP);
@@ -718,13 +728,13 @@ static long parse_inst_alu_targets(const char* tok, const size_t len)
 /**
  * Parse operation of ALU instruction assembly.
  *
- * @param tok Token to parse.
+ * @param tok_st Token to parse with all whitespace removed.
  * @param len Max length of string to read from token, excluding null-terminator.
  * @returns NGC ALU instruction bits indicating operation (bits 7-13). Negative value if error.
  */
-static long parse_inst_alu_opr(const char* tok, const size_t len)
+static long parse_inst_alu_opr(const char* tok_st, const size_t len)
 {
-	switch (str_ull(tok, len)) {
+	switch (str_ull(tok_st, len)) {
 		case 0x00000030: // 0
 			return NGC_IN_OPR_ZX;
 		case 0x00000031: // 1
@@ -793,13 +803,13 @@ static long parse_inst_alu_opr(const char* tok, const size_t len)
 /**
  * Parse jump condition of ALU instruction assembly.
  *
- * @param tok Token to parse.
+ * @param tok_tr Token to parse with leading and trailing whitespace trimmed.
  * @param len Max length of string to read from token, excluding null-terminator.
  * @returns NGC ALU instruction bits indicating jump condition (bits 1-3). Negative value if error.
  */
-static long parse_inst_alu_jump(const char* tok, const size_t len)
+static long parse_inst_alu_jump(const char* tok_tr, const size_t len)
 {
-	switch (str_ull(tok, len)) {
+	switch (str_ull(tok_tr, len)) {
 		case 0x4A4754: // JGT
 			return NGC_IN_JUMP_GT;
 		case 0x4A4551: // JEQ
@@ -825,20 +835,21 @@ static long parse_inst_alu_jump(const char* tok, const size_t len)
  * @param err Struct to store error.
  * @param lines Dynamic array to push parsed result.
  * @param line_num Number of line in file.
- * @param line_st Assembly line with all whitespace removed.
- * @param line_len Length of assembly line, excluding null-terminator.
+ * @param line_tr Assembly line with leading and trailing whitespace trimmed.
+ * @param line_tr_len Length of assembly line with whitespace trimmed, excluding null-terminator.
  * @param features Enabled assembly language features.
  * @returns Enum value indicating whether ALU instruction was valid and parsed successfully, or hint if file line could be another kind of instruction.
  */
-static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynarr* lines, const size_t line_num, const char* line_st, const size_t line_len, const signed int features)
+static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynarr* lines, const size_t line_num, const char* line_tr, const size_t line_tr_len, const signed int features)
 {
 	// Original NandGame assembler sets bits 14-16 of ALU instructions to 1 despite only bit 16 being relevant
 	#define NGC_IN_ALU (NGC_IN_CI | (1 << 14) | (1 << 13))
 
-	assert(lines);
+	assert(line_tr);
+	assert(line_tr_len <= FILE_LINE_LEN);
 
 	// Special syntax case - line can be JMP only
-	if (str_comp("JMP", line_st, line_len, NULL) == 0) {
+	if (str_comp("JMP", line_tr, line_tr_len, NULL) == 0) {
 		// Original NandGame assembler sets operation bits of instruction to "-1"
 		if (!lines_push(err, lines, LINE_INST_E, line_num, NGC_IN_ALU | NGC_IN_OPR_NEG1 | NGC_IN_JUMP_LT | NGC_IN_JUMP_EQ | NGC_IN_JUMP_GT))
 			return ALU_INST_FAILURE_E;
@@ -847,12 +858,12 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	}
 
 	// Get pointers to ALU instruction token separators
-	char* line_equals_ptr = strchr(line_st, '=');
-	char* line_semicol_ptr = strchr(line_st, ';');
+	char* line_equals_ptr = strchr(line_tr, '=');
+	char* line_semicol_ptr = strchr(line_tr, ';');
 
 	// Init ALU operation token ind and len
 	size_t tok_opr_ind = 0;
-	size_t tok_opr_len = 0;
+	int tok_opr_len = line_tr_len;
 
 	// Init ALU instruction parts
 	long inst_target = 0, inst_opr = 0, inst_jump = 0;
@@ -860,23 +871,25 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	// Equals char found - syntax expected to be "[Target] = [Operation] [...]"
 	// Parse ALU target
 	if (line_equals_ptr) {
-		assert(line_equals_ptr >= line_st);
-		tok_opr_ind = (line_equals_ptr - line_st) + 1; // Char after '='
-		int tok_target_len = (int)tok_opr_ind - 1;
+		assert(line_equals_ptr >= line_tr);
+		tok_opr_ind = (line_equals_ptr - line_tr) + 1; // Start ALU operation after '=' char
+		int tok_target_len_max = (int)tok_opr_ind - 1; // ALU target length is from start of line to char before '='
 
 		// Syntax error - no chars before '='
-		if (tok_target_len < 1) {
+		if (tok_target_len_max < 1) {
 			error_init(err, ERRVAL_SYNTAX, "No target given");
 			return ALU_INST_FAILURE_E;
 		}
 
-		// Copy target token to new string
-		char tok_target[STR_CHARS(FILE_LINE_LEN)] = { 0 };
-		size_t tok_target_copy_result = str_copy(tok_target, line_st, tok_target_len);
-		assert(tok_target_copy_result <= (size_t)tok_target_len);
-		tok_target_len = (int)tok_target_copy_result;
+		// Remove ALU target (+ equals char) from ALU operation length
+		tok_opr_len -= tok_target_len_max + 1;
 
-		// Parse target
+		// Trim leading and trailing whitespace from ALU target
+		char tok_target[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+		size_t tok_target_len = str_trim(tok_target, line_tr, tok_target_len_max, isspace);
+		assert(tok_target_len <= (size_t)tok_target_len_max);
+
+		// Parse ALU target
 		inst_target = parse_inst_alu_targets(tok_target, tok_target_len);
 		if (inst_target < 0) {
 			error_init(err, ERRVAL_SYNTAX, "Invalid target: '%s'", tok_target);
@@ -884,30 +897,28 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 		}
 	}
 
-	tok_opr_len = line_len - tok_opr_ind;
-
 	// Semicolon char found - syntax expected to be "[...] [Operation] ; [Jump]"
 	// Parse ALU jump condition
 	if (line_semicol_ptr) {
-		assert(line_semicol_ptr >= line_st);
-		size_t tok_jump_ind = (line_semicol_ptr - line_st) + 1; // Char after ';'
-		int tok_jump_len = line_len - tok_jump_ind;
+		assert(line_semicol_ptr >= line_tr);
+		size_t tok_jump_ind = (line_semicol_ptr - line_tr) + 1; // Start ALU jump condition after ';' char
+		int tok_jump_len_max = line_tr_len - tok_jump_ind; // ALU jump condition length is from char after ';' to end of line
 
 		// Syntax error - no chars after ';'
-		if (tok_jump_len < 1) {
+		if (tok_jump_len_max < 1) {
 			error_init(err, ERRVAL_SYNTAX, "No jump condition given");
 			return ALU_INST_FAILURE_E;
 		}
 
-		tok_opr_len = tok_opr_len - tok_jump_len - 1;
+		// Remove ALU jump condition (+ semicolon char) from ALU operation length
+		tok_opr_len -= tok_jump_len_max + 1;
 
-		// Copy jump condition token to new string
+		// Trim leading and trailing whitespace from ALU jump condition
 		char tok_jump[STR_CHARS(FILE_LINE_LEN)] = { 0 };
-		size_t tok_jump_copy_result = str_copy(tok_jump, &line_st[tok_jump_ind], tok_jump_len);
-		assert(tok_jump_copy_result <= (size_t)tok_jump_len);
-		tok_jump_len = (int)tok_jump_copy_result;
+		size_t tok_jump_len = str_trim(tok_jump, &line_tr[tok_jump_ind], tok_jump_len_max, isspace);
+		assert(tok_jump_len <= (size_t)tok_jump_len_max);
 
-		// Parse jump condition
+		// Parse ALU jump condition
 		inst_jump = parse_inst_alu_jump(tok_jump, tok_jump_len);
 		if (inst_jump < 0) {
 			error_init(err, ERRVAL_SYNTAX, "Invalid jump condition: '%s'", tok_jump);
@@ -915,14 +926,18 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 		}
 	}
 
-	// Copy ALU operation token to new string
-	char tok_opr[STR_CHARS(FILE_LINE_LEN)] = { 0 };
-	size_t tok_opr_copy_result = str_copy(tok_opr, &line_st[tok_opr_ind], tok_opr_len);
-	assert(tok_opr_copy_result <= tok_opr_len);
-	tok_opr_len = tok_opr_copy_result;
+	assert(tok_opr_len >= 0);
+
+	// Remove all whitespace from ALU operation
+	char tok_opr_tr[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+	char tok_opr_st[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+	size_t tok_opr_tr_len = str_trim(tok_opr_tr, &line_tr[tok_opr_ind], tok_opr_len, isspace);
+	assert(tok_opr_tr_len <= (size_t)tok_opr_len);
+	size_t tok_opr_st_len = str_rm(tok_opr_st, tok_opr_tr, tok_opr_tr_len, isspace);
+	assert(tok_opr_st_len <= tok_opr_tr_len);
 
 	// Parse ALU operation
-	inst_opr = parse_inst_alu_opr(tok_opr, tok_opr_len);
+	inst_opr = parse_inst_alu_opr(tok_opr_st, tok_opr_st_len);
 	if (inst_opr >= 0) {
 		if (!lines_push(err, lines, LINE_INST_E, line_num, (size_t)(NGC_IN_ALU | inst_opr | inst_target | inst_jump)))
 			return ALU_INST_FAILURE_E;
@@ -931,7 +946,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	}
 
 	// ALU operation invalid - return hint if file line could be another kind of instruction
-	if (!line_semicol_ptr && parse_inst_alu_jump(tok_opr, tok_opr_len) < 0) {
+	if (!line_semicol_ptr && parse_inst_alu_jump(tok_opr_tr, tok_opr_tr_len) < 0) {
 		// Line could be a data instruction - "A = [...]"
 		if (line_equals_ptr && inst_target == NGC_IN_TARGET_A)
 			return ALU_INST_HINT_INST_DATA_E;
@@ -942,7 +957,7 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
 	}
 
 	// ALU operation invalid
-	error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", tok_opr);
+	error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", tok_opr_tr);
 	return ALU_INST_FAILURE_E;
 }
 
@@ -954,12 +969,15 @@ static enum parse_inst_alu_result parse_inst_alu(struct error* err, struct dynar
  * @param refs_data Dynamic array to push parsed result.
  * @param line_num Number of line in file.
  * @param line_tr Assembly line with leading and trailing whitespace trimmed.
- * @param line_len Length of assembly line, excluding null-terminator.
+ * @param line_tr_len Length of assembly line with whitespace trimmed, excluding null-terminator.
  * @param features Enabled assembly language features.
  * @returns Whether data instruction was valid and parsed successfully.
  */
-static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dynarr* refs_data, const size_t line_num, const char* line_tr, const size_t line_len, const signed int features)
+static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dynarr* refs_data, const size_t line_num, const char* line_tr, const size_t line_tr_len, const signed int features)
 {
+	assert(line_tr);
+	assert(line_tr_len <= FILE_LINE_LEN);
+
 	// Get pointer to '=' char
 	// Whether 'A' is being targeted before '=' is checked before this function
 	char* line_equals_ptr = strchr(line_tr, '=');
@@ -968,33 +986,35 @@ static bool parse_inst_data(struct error* err, struct dynarr* lines, struct dyna
 		return false;
 	}
 
-	// Get string after '=' char and trim whitespace - use as value for data instruction
-	char data_str[STR_CHARS(FILE_LINE_LEN)] = { 0 };
-	size_t data_str_len = str_trim(data_str, line_equals_ptr + 1, line_len, isspace);
-	assert(data_str_len <= line_len);
+	// Trim leading and trailing whitespace from string after '=' char - use as value to parse
+	char tok_val[STR_CHARS(FILE_LINE_LEN)] = { 0 };
+	size_t tok_val_len = str_trim(tok_val, line_equals_ptr + 1, line_tr_len, isspace);
+	assert(tok_val_len <= line_tr_len);
 
-	// Try parse data value as number
-	long parsed_number = parse_number(data_str, data_str_len);
-	if (parsed_number >= 0)
-		return lines_push(err, lines, LINE_INST_E, line_num, (size_t)parsed_number);
+	// Try parse data value as constant number
+	long data_const = parse_number(tok_val, tok_val_len);
+	if (data_const >= 0) {
+		assert(data_const <= NGC_WORD_MAX);
+		return lines_push(err, lines, LINE_INST_E, line_num, (size_t)data_const);
+	}
 
 	// Data value cannot be a data reference key
-	if (!(features & LANG_FEAT_DEF_DATA) || !key_ref_valid(data_str, data_str_len)) {
-		error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", data_str);
+	if (!(features & LANG_FEAT_DEF_DATA) || !key_ref_valid(tok_val, tok_val_len)) {
+		error_init(err, ERRVAL_SYNTAX, "Invalid operation: '%s'", tok_val);
 		return false;
 	}
 
-	assert(data_str_len <= PARSED_KEY_LEN);
+	assert(tok_val_len <= PARSED_KEY_LEN);
 
 	// Original NandGame assembler does not allow data reference key of uppercase 'LABEL', despite it being a valid data key that cannot conflict with LABEL keyword
-	if (str_comp("LABEL", data_str, data_str_len, NULL) == 0) {
+	if (str_comp("LABEL", tok_val, tok_val_len, NULL) == 0) {
 		error_init(err, ERRVAL_SYNTAX, "LABEL keyword must be first word in statement");
 		return false;
 	}
 
 	// Build data reference result
 	char data_key[PARSED_KEY_CHARS] = { 0 };
-	str_copy(data_key, data_str, data_str_len);
+	str_copy(data_key, tok_val, tok_val_len);
 
 	// Push data reference result
 	long long ref_data_ind = refs_data_push(err, refs_data, data_key);
@@ -1022,6 +1042,8 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 {
 	assert(result);
 	assert(scope);
+	assert(line);
+	assert(line_len <= FILE_LINE_LEN);
 
 	bool success = false;
 	struct dynarr line_toks = { 0 };
@@ -1110,13 +1132,8 @@ static bool parse_line(struct error* err, struct parsed_base* result, struct dyn
 		}
 	}
 
-	// Remove all whitespace from line
-	char line_st[STR_CHARS(FILE_LINE_LEN)] = { 0 };
-	size_t line_st_len = str_rm(line_st, line_tr, line_tr_len, isspace);
-	assert(line_st_len <= line_tr_len);
-
 	// Try parse line as ALU instruction
-	enum parse_inst_alu_result parse_inst_alu_result = parse_inst_alu(err, &result->lines, line_num, line_st, line_st_len, features);
+	enum parse_inst_alu_result parse_inst_alu_result = parse_inst_alu(err, &result->lines, line_num, line_tr, line_tr_len, features);
 	switch (parse_inst_alu_result) {
 		case ALU_INST_FAILURE_E:
 			success = false;

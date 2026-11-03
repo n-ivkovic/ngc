@@ -13,7 +13,7 @@ D & A
 
 D-*A
 D - *A
-	 	 D 	 	 	- 	 	 		* 	 		  	A 	 	 	
+	 	 D 	 	 	- 	 	 		*A 	 	 	
 
 JMP
 	 	 	 	 	JMP  	 	 	 	
@@ -28,7 +28,7 @@ A, D = D & A
 
 *A,D,A=D&A
 *A, D, A = D & A
-	 	  * 	 		 A  	 	, 		 	 	D 	 	 		, 	 		 	 	A  	 	 		= 	 	D 	 		 	 & 	 	 	 		 A 	 	 	 	 	
+	 	  *A  	 	, 		 	 	D 	 	 		, 	 		 	 	A  	 	 		= 	 	D 	 		 	 & 	 	 	 		 A 	 	 	 	 	
 
 
 D&A;JMP
@@ -37,7 +37,7 @@ D & A ; JMP
 
 *A,D,A=D&A;JMP
 *A, D, A = D & A ; JMP
-	 	 * 	 	 		 A 	 	 		 	, 	 	  		D  	 	 	 , 	 	 	A 	 	 	 	= 	 		 		D 	 	 	& 	 	 	 	A 	 	 	; 	 	  JMP  	 	 	
+	 	 *A 	 	 		 	, 	 	  		D  	 	 	 , 	 	 	A 	 	 	 	= 	 		 		D 	 	 	& 	 	 	 	A 	 	 	; 	 	  JMP  	 	 	
 
 A=12345
 A = 12345

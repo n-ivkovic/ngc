@@ -26,7 +26,7 @@ $ ngc-asm memset.asm -o memset.bin
 ```
 
 The original NandGame does not indicate the endianness of the computer.
-Therefore, the assembler does not perscribe any particular endianness and outputs NandGame machine code using the system's endianness by default.
+Therefore, the assembler does not prescribe any particular endianness and outputs NandGame machine code using the system's endianness by default.
 
 ### CLI usage
 
@@ -84,6 +84,14 @@ The table below lists differences in language features between usage within regu
 
 Like `DEFINE` and `LABEL` statements, a macro can be referenced both before and after its definition.
 
+#### Known differences
+
+The following behavioral differences between the original NandGame assembler and the `ngc-asm` assembler are known about:
+
+| Feature | Original NandGame behavior | `ngc-asm` behavior |
+| ---     | ---                         | ---       |
+| `*A` references in ALU operation calculations. | `*` must be immediately followed by `A`, i.e. `D = * A` is invalid syntax. | `*` must be followed by `A`, but may contain whitespace in between, i.e. `D = * A` is valid syntax. |
+
 ### Wishlist
 
 The following assembler features are being considered, but not guaranteed to be implemented:
@@ -105,7 +113,7 @@ $ ngc-emu memset.bin
 ```
 
 The original NandGame does not indicate the endianness of the computer.
-Therefore, the emulator does not perscribe any particular endianness and loads NandGame machine code into ROM using the system's endianness by default.
+Therefore, the emulator does not prescribe any particular endianness and loads NandGame machine code into ROM using the system's endianness by default.
 
 ### CLI usage
 
@@ -218,7 +226,7 @@ $ ngc-asm code.asm | ngc-emu
 
 Update after installing:
 ```
-$ git pull master
+$ git pull origin
 $ make
 # make install
 ```
