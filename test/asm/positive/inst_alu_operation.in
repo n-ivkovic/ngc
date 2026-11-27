@@ -21,9 +21,10 @@ D&*A
 D|A
 D|*A
 D^A
-D&*A
+D^*A
 *A
 -*A
+~*A
 *A+1
 *A-1
 *A-D
