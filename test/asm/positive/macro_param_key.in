@@ -131,6 +131,31 @@ macro.b11 0xB12
 macro.b_ 0x5F
 macro.b__ 0x5F5F
 
+# MACRO parameter key definition can start with alpha-prefixed number (b, x)
+# MACRO parameter key reference can conflict with invalid number if MACRO parameter key starts with alpha-prefixed number (b, x): Invalid number takes precedence
+
+%MACRO macro.b2 b2
+	A = B2
+	A = b2
+%END
+%MACRO macro.b20 b20
+	A = B20
+	A = b20
+%END
+%MACRO macro.xg xg
+	A = XG
+	A = xg
+%END
+%MACRO macro.xg0 xg0
+	A = XG0
+	A = xg0
+%END
+
+macro.b2 0xB02
+macro.b20 0xB20
+macro.xg 0x67
+macro.xg0 0x670
+
 # MACRO parameter key definition cannot overlap with ALU operation:
 # - ALU operation can only be UPPER CASE
 # - MACRO parameter key cannot be UPPER CASE ALU operation

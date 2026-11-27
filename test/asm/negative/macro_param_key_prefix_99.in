@@ -1,0 +1,7 @@
+# MACRO parameter key cannot start with number (0-9)
+
+%MACRO macro_99 99_invalid
+    A = 99_invalid
+%END
+
+macro_99 12345

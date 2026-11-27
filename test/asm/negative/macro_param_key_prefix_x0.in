@@ -1,0 +1,8 @@
+# MACRO parameter key definition can start with alpha-prefixed number (b, x)
+# MACRO parameter key reference can conflict with invalid number if MACRO parameter key starts with alpha-prefixed number (b, x): Invalid number takes precedence
+
+%MACRO macro.x0 x0.invalid
+    A = x0.invalid
+%END
+
+macro.x0 12345
