@@ -7,7 +7,6 @@
 #include "parse.h"
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -83,7 +82,7 @@ int main(int argc, char* argv[])
 				break;
 			case 'v':
 			case 'V':
-				printf("ngc-asm v0.14.0%s", EOL);
+				printf("ngc-asm v1.0.0%s", EOL);
 				return 0;
 			case ':':
 				print_err("Option -%c requires an argument", optopt);

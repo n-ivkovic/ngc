@@ -1,6 +1,7 @@
 # NGC
 
-A project that encompasses both an assembler and a TUI emulator for the fictional [**N**and**G**ame](https://nandgame.com) **c**omputer.
+A project that encompasses both an assembler and a TUI emulator for the fictional [**N**and**G**ame **c**omputer](https://nandgame.com).
+The NandGame computer is based on the [Hack computer architecture](https://en.wikipedia.org/wiki/Hack_computer) taught by the [NAND2Tetris project](https://www.nand2tetris.org/).
 
 Written in C99 and complies with [POSIX.1-2001](https://pubs.opengroup.org/onlinepubs/000095399/) through to [POSIX.1-2024](https://pubs.opengroup.org/onlinepubs/9799919799/).
 
